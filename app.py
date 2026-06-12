@@ -341,4 +341,4 @@ if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
     print(f"\n🌉 SignBridge AI  →  http://localhost:{port}")
     print(f"   Wolfram : {'✅ Active' if WOLFRAM_APP_ID else '⚠️  No key — add WOLFRAM_APP_ID to .env'}\n")
-    app.run(host="0.0.0.0", port=port, debug=os.getenv("FLASK_DEBUG", "true") == "true")
+    app.run(host="0.0.0.0",port=int(os.environ.get("PORT", 5000)))
