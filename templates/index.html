@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="theme-color" content="#0a1628"/>
   <title>SignBridge AI — Breaking Communication Barriers</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet">
@@ -67,8 +70,8 @@
 
     <!-- Camera / canvas -->
     <div class="cam-wrap">
-      <video id="signVideo" autoplay playsinline muted style="display:none"></video>
-      <canvas id="signCanvas" width="640" height="480"></canvas>
+      <video id="signVideo" autoplay playsinline muted style="display:none;"></video>
+      <canvas id="signCanvas" width="640" height="480" style="width:100%; height:auto;"></canvas>
       <div class="cam-overlay" id="camOverlay">
         <span class="cam-icon">📷</span>
         <p>Click <strong>Start Camera</strong></p>
@@ -84,9 +87,9 @@
 
     <!-- Controls -->
     <div class="btn-row">
-      <button class="btn primary" id="startCamBtn" onclick="startCamera()">▶ Start Camera</button>
-      <button class="btn secondary" id="stopCamBtn" onclick="stopCamera()" disabled>■ Stop</button>
-      <button class="btn ghost" onclick="flushBuffer()">⏩ Send Phrase</button>
+      <button class="btn primary" id="startCamBtn" onclick="startCamera()" type="button">▶ Start Camera</button>
+      <button class="btn secondary" id="stopCamBtn" onclick="stopCamera()" disabled type="button">■ Stop</button>
+      <button class="btn ghost" onclick="flushBuffer()" type="button">⏩ Send Phrase</button>
     </div>
 
     <!-- Buffer -->
@@ -115,7 +118,7 @@
       </div>
       <div class="res-footer">
         <span class="method-tag" id="methodTag">—</span>
-        <button class="btn play" id="playAudioBtn" onclick="playAudio()" disabled>🔊 Play Voice</button>
+        <button class="btn play" id="playAudioBtn" onclick="playAudio()" disabled type="button">🔊 Play Voice</button>
       </div>
       <div class="emergency-alert" id="emergencyAlert" style="display:none">
         🚨 EMERGENCY DETECTED — Seek help immediately!
@@ -153,8 +156,8 @@
 
     <!-- Controls -->
     <div class="btn-row">
-      <button class="btn primary" id="startRecBtn" onclick="startRecording()">⏺ Record</button>
-      <button class="btn secondary" id="stopRecBtn" onclick="stopRecording()" disabled>■ Stop</button>
+      <button class="btn primary" id="startRecBtn" onclick="startRecording()" type="button">⏺ Record</button>
+      <button class="btn secondary" id="stopRecBtn" onclick="stopRecording()" disabled type="button">■ Stop</button>
     </div>
 
     <!-- Transcript -->
