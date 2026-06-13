@@ -14,6 +14,17 @@ let cameraActive = false;
 
 const LANG_BCP47 = { en: "en-IN", hi: "hi-IN", kn: "kn-IN" };
 
+// ─── Mobile detection ──────────────────────────────────────────────────
+const isMobile = () => window.innerWidth <= 768;
+const getOptimalCanvasSize = () => {
+  if (window.innerWidth <= 480) {
+    return { width: 320, height: 240 };
+  } else if (window.innerWidth <= 768) {
+    return { width: 480, height: 360 };
+  }
+  return { width: 640, height: 480 };
+};
+
 // ─── DOM refs ─────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
 
@@ -26,11 +37,31 @@ function setStatus(msg, type = "info") {
 
 function getLang() { return $("langSelect").value; }
 
+// ─── Window resize handler ────────────────────────────────────────────
+window.addEventListener("resize", () => {
+  if (cameraActive && camera) {
+    const size = getOptimalCanvasSize();
+    const canvas = $("signCanvas");
+    if (canvas.width !== size.width || canvas.height !== size.height) {
+      canvas.width = size.width;
+      canvas.height = size.height;
+    }
+  }
+});
+
+// ─── Touch-friendly interactions ───────────────────────────────────────
+document.addEventListener("touchstart", () => {}, { passive: true });
+
 // ─── MediaPipe Hands Setup ────────────────────────────────────────────
 function initMediaPipe() {
   const videoEl  = $("signVideo");
   const canvasEl = $("signCanvas");
   canvasCtx      = canvasEl.getContext("2d");
+
+  // Optimize canvas size for mobile
+  const size = getOptimalCanvasSize();
+  canvasEl.width = size.width;
+  canvasEl.height = size.height;
 
   hands = new Hands({
     locateFile: file =>
@@ -39,7 +70,7 @@ function initMediaPipe() {
 
   hands.setOptions({
     maxNumHands:            1,
-    modelComplexity:        1,
+    modelComplexity:        isMobile() ? 0 : 1,
     minDetectionConfidence: 0.7,
     minTrackingConfidence:  0.6,
   });
@@ -48,8 +79,8 @@ function initMediaPipe() {
 
   camera = new Camera(videoEl, {
     onFrame: async () => { await hands.send({ image: videoEl }); },
-    width: 640,
-    height: 480,
+    width: size.width,
+    height: size.height,
   });
 }
 
