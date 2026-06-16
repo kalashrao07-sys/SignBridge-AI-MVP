@@ -194,7 +194,8 @@
   </section>
 </main>
 
-<!-- ── WOLFRAM INSIGHTS PANEL ──────────────────────────────────────── -->
+
+<!-- ── WOLFRAM INTELLIGENCE PANEL ─────────────────────────────────── -->
 <section class="wf-insights-panel" id="wolframInsightsPanel" style="display:none">
   <div class="wf-insights-header">
     <span class="wf-insights-icon">🧠</span>
@@ -202,20 +203,23 @@
       <h3>Wolfram Alpha Intelligence</h3>
       <p>Real-time knowledge context from Wolfram Alpha API</p>
     </div>
-    <span class="wf-query-count">Queries: <strong id="wolframQueryCount">0</strong></span>
+    <div class="wf-stats">
+      <span class="wf-query-count">API Queries: <strong id="wolframQueryCount">0</strong></span>
+      <span class="wf-status-dot" id="wolframStatusDot">●</span>
+    </div>
   </div>
   <div class="wf-insights-body">
     <div class="wf-insight-col">
       <div class="wf-insight-label">🔍 Query Sent to Wolfram</div>
       <div class="wf-insight-query" id="wiQuery">—</div>
     </div>
-    <div class="wf-insight-col">
+    <div class="wf-insight-col wf-col-wide">
       <div class="wf-insight-label">📡 Wolfram Response</div>
       <div class="wf-insight-response" id="wiResponse">—</div>
     </div>
     <div class="wf-insight-col">
       <div class="wf-insight-label">🏷️ Category</div>
-      <div class="wf-insight-category" id="wiCategory">—</div>
+      <div id="wiCategory" class="wf-insight-category">—</div>
     </div>
   </div>
 </section>
