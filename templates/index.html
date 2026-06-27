@@ -195,34 +195,40 @@
 </main>
 
 
-<!-- ── WOLFRAM INTELLIGENCE PANEL ─────────────────────────────────── -->
-<section class="wf-insights-panel" id="wolframInsightsPanel" style="display:none">
-  <div class="wf-insights-header">
-    <span class="wf-insights-icon">🧠</span>
+<section class="kb-insights-panel" id="knowledgeInsightsPanel" style="display:none">
+  <div class="kb-insights-header">
+    <span class="kb-insights-icon">🧠</span>
     <div>
-      <h3>Wolfram Alpha Intelligence</h3>
-      <p>Real-time knowledge context from Wolfram Alpha API</p>
+      <h3>SignBridge Knowledge Engine</h3>
+      <p>Self-contained medical &amp; factual knowledge layer &mdash; runs fully offline, no external API</p>
     </div>
-    <div class="wf-stats">
-      <span class="wf-query-count">API Queries: <strong id="wolframQueryCount">0</strong></span>
-      <span class="wf-status-dot" id="wolframStatusDot">●</span>
+    <div class="kb-stats">
+      <span class="kb-query-count">Matches this session: <strong id="kbQueryCount">0</strong></span>
+      <span class="kb-status-dot" id="kbStatusDot">●</span>
     </div>
   </div>
-  <div class="wf-insights-body">
-    <div class="wf-insight-col">
-      <div class="wf-insight-label">🔍 Query Sent to Wolfram</div>
-      <div class="wf-insight-query" id="wiQuery">—</div>
+  <div class="kb-insights-body">
+    <div class="kb-insight-col">
+      <div class="kb-insight-label">🔍 Topic Matched</div>
+      <div class="kb-insight-query" id="kiTopic">—</div>
     </div>
-    <div class="wf-insight-col wf-col-wide">
-      <div class="wf-insight-label">📡 Wolfram Response</div>
-      <div class="wf-insight-response" id="wiResponse">—</div>
+    <div class="kb-insight-col kb-col-wide">
+      <div class="kb-insight-label">📡 Knowledge Engine Response</div>
+      <div class="kb-insight-response" id="kiResponse">—</div>
     </div>
-    <div class="wf-insight-col">
-      <div class="wf-insight-label">🏷️ Category</div>
-      <div id="wiCategory" class="wf-insight-category">—</div>
+    <div class="kb-insight-col">
+      <div class="kb-insight-label">🏷️ Category</div>
+      <div id="kiCategory" class="ki-category">—</div>
     </div>
   </div>
 </section>
+ 
+<!-- Also rename any inline debug-log container ids if present:
+     wolframLog        -> knowledgeLog
+     wolframLogSpeech  -> knowledgeLogSpeech
+     wfContext         -> kbContext
+     wfContextText     -> kbContextText
+     (These are referenced by the new app.js automatically.) -->
 
 <!-- ── STATUS BAR ────────────────────────────────────────────────────── -->
 <div class="status-bar">
