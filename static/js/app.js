@@ -1,7 +1,10 @@
 /**
  * SignBridge AI — Main Frontend Application
- * Direction 1: Sign Language → Wolfram Knowledge → Voice
- * Direction 2: Speech → Wolfram Context → Smart Display
+ * Direction 1: Sign Language → Knowledge Engine → Voice
+ * Direction 2: Speech → Knowledge Engine → Smart Display
+ *
+ * Knowledge Engine is fully local (see backend knowledge_base.py) —
+ * no external API, no network dependency, no rate limits.
  */
 
 // ─── State ────────────────────────────────────────────────────────────
@@ -13,7 +16,7 @@ let lastAudio     = null;
 let mediaRec      = null;
 let audioChunks   = [];
 let cameraActive  = false;
-let wolframQueryCount = 0;   // tracks successful Wolfram API calls this session
+let kbQueryCount  = 0;   // tracks successful Knowledge Engine matches this session
 
 const LANG_BCP47 = { en: "en-IN", hi: "hi-IN", kn: "kn-IN" };
 
@@ -53,65 +56,70 @@ document.addEventListener("touchstart", () => {}, { passive: true });
 
 
 // ═══════════════════════════════════════════════════════════════════
-//  WOLFRAM INTELLIGENCE PANEL
+//  KNOWLEDGE ENGINE PANEL
 // ═══════════════════════════════════════════════════════════════════
 
 /**
- * Populate the full-width Wolfram Alpha Intelligence panel at the bottom.
+ * Populate the full-width Knowledge Engine panel at the bottom.
  * Called after every sign phrase or speech text is processed.
  */
-function updateWolframInsights(query, response, category, success) {
-  if (!query) return;
-
-  const panel = $("wolframInsightsPanel");
+function updateKnowledgeInsights(topic, response, category, success) {
+  const panel = $("knowledgeInsightsPanel");
   if (!panel) return;
+
+  if (!topic) {
+    // No match this round — keep panel visible if it already has content,
+    // otherwise leave it hidden until the first real match.
+    return;
+  }
+
   panel.style.display = "block";
 
-  $("wiQuery").textContent    = query;
-  $("wiResponse").textContent = response || "No response from Wolfram Alpha";
+  $("kiTopic").textContent    = topic;
+  $("kiResponse").textContent = response || "No matching entry in the Knowledge Engine.";
 
-  const catEl       = $("wiCategory");
+  const catEl       = $("kiCategory");
   catEl.textContent = (category || "general").toUpperCase();
-  catEl.className   = "wf-insight-category wf-cat-" + (category || "general");
+  catEl.className   = "ki-category ki-cat-" + (category || "general");
 
-  const dotEl = $("wolframStatusDot");
+  const dotEl = $("kbStatusDot");
   if (dotEl) {
     dotEl.style.color = success ? "#44ff88" : "#ff6b6b";
   }
 
   if (success) {
-    wolframQueryCount++;
-    const countEl = $("wolframQueryCount");
-    if (countEl) countEl.textContent = wolframQueryCount;
+    kbQueryCount++;
+    const countEl = $("kbQueryCount");
+    if (countEl) countEl.textContent = kbQueryCount;
   }
 }
 
 /**
- * Populate the inline Wolfram debug log inside each panel.
+ * Populate the inline Knowledge Engine debug log inside each panel.
  */
-function showWolframLog(panel, input, query, response, method, output) {
-  const el = $(panel === "sign" ? "wolframLog" : "wolframLogSpeech");
+function showKnowledgeLog(panel, input, topic, response, method, output) {
+  const el = $(panel === "sign" ? "knowledgeLog" : "knowledgeLogSpeech");
   if (!el) return;
   el.style.display = "block";
   el.innerHTML = `
-    <div class="wf-row">
-      <span class="wf-label">📥 Input</span>
-      <span class="wf-val">"${input || "—"}"</span>
+    <div class="kb-row">
+      <span class="kb-label">📥 Input</span>
+      <span class="kb-val">"${input || "—"}"</span>
     </div>
-    <div class="wf-row">
-      <span class="wf-label">🔍 Query</span>
-      <span class="wf-val wf-query">${query || "—"}</span>
+    <div class="kb-row">
+      <span class="kb-label">🔍 Topic Matched</span>
+      <span class="kb-val kb-topic">${topic || "—"}</span>
     </div>
-    <div class="wf-row">
-      <span class="wf-label">📤 Wolfram</span>
-      <span class="wf-val wf-resp">${response || "—"}</span>
+    <div class="kb-row">
+      <span class="kb-label">📤 Knowledge Engine</span>
+      <span class="kb-val kb-resp">${response || "—"}</span>
     </div>
-    ${output ? `<div class="wf-row">
-      <span class="wf-label">✅ Output</span>
-      <span class="wf-val wf-out">"${output}"</span>
+    ${output ? `<div class="kb-row">
+      <span class="kb-label">✅ Output</span>
+      <span class="kb-val kb-out">"${output}"</span>
     </div>` : ""}
-    ${method ? `<div class="wf-method">via ${
-      method === "wolfram" ? "🧠 Wolfram Alpha API" : "⚙️ Rule Engine"
+    ${method ? `<div class="kb-method">via ${
+      method === "knowledge_base" ? "🧠 Knowledge Engine" : "⚙️ Rule Engine"
     }</div>` : ""}
   `;
 }
@@ -199,8 +207,8 @@ function updateBufferUI() {
   const chips = $("bufferChips");
   chips.innerHTML = "";
   buf.forEach(sign => {
-    const chip     = document.createElement("span");
-    chip.className = "chip";
+    const chip       = document.createElement("span");
+    chip.className   = "chip";
     chip.textContent = sign;
     chips.appendChild(chip);
   });
@@ -246,17 +254,16 @@ async function flushBuffer() {
 
 
 // ═══════════════════════════════════════════════════════════════════
-//  DIRECTION 1: SIGN → WOLFRAM → VOICE
+//  DIRECTION 1: SIGN → KNOWLEDGE ENGINE → VOICE
 // ═══════════════════════════════════════════════════════════════════
 
 async function processSignPhrase(phrase) {
-  setStatus(`🧠 Wolfram processing: "${phrase}"…`);
+  setStatus(`🧠 Processing: "${phrase}"…`);
 
-  // Clear stale Wolfram context from previous run
-  $("wfContext").style.display  = "none";
-  $("wfContextText").textContent = "";
+  $("kbContext").style.display  = "none";
+  $("kbContextText").textContent = "";
 
-  showWolframLog("sign", phrase, "Querying Wolfram Alpha…", "…");
+  showKnowledgeLog("sign", phrase, "Looking up…", "…");
 
   try {
     const res  = await fetch("/api/sign/process", {
@@ -266,35 +273,31 @@ async function processSignPhrase(phrase) {
     });
     const data = await res.json();
 
-    // 1. Update inline Wolfram debug log
-    showWolframLog(
+    showKnowledgeLog(
       "sign",
       data.original,
-      data.wolfram_query,
-      data.wolfram_response,
-      data.wolfram_method,
+      data.kb_topic,
+      data.kb_response,
+      data.method,
       data.corrected
     );
 
-    // 2. Update full-width Wolfram Intelligence panel
-    updateWolframInsights(
-      data.wolfram_query,
-      data.wolfram_response,
-      data.wolfram_category,
-      data.wolfram_success
+    updateKnowledgeInsights(
+      data.kb_topic,
+      data.kb_response,
+      data.kb_category,
+      data.kb_success
     );
 
-    // 3. Update result card
     $("signResult").style.display      = "flex";
     $("rawPhrase").textContent         = data.original;
     $("correctedSentence").textContent = data.corrected;
 
-    $("methodTag").textContent = data.wolfram_method === "wolfram"
-      ? "✅ Wolfram Alpha" : "⚙️ Rule-based";
+    $("methodTag").textContent = data.method === "knowledge_base"
+      ? "✅ Knowledge Engine" : "⚙️ Rule-based";
     $("methodTag").className = "method-tag " +
-      (data.wolfram_method === "wolfram" ? "wolfram" : "rules");
+      (data.method === "knowledge_base" ? "knowledge" : "rules");
 
-    // 4. Translation row
     if (data.translated && getLang() !== "en") {
       $("translatedRow").style.display    = "flex";
       $("translatedSentence").textContent = data.translated;
@@ -302,20 +305,16 @@ async function processSignPhrase(phrase) {
       $("translatedRow").style.display = "none";
     }
 
-    // 5. Emergency alert
     $("emergencyAlert").style.display = data.emergency ? "block" : "none";
 
-    // 6. Wolfram context inside result card (if insight returned)
-    if (data.wf_context) {
-      $("wfContext").style.display   = "block";
-      $("wfContextText").textContent = data.wf_context;
+    if (data.kb_response) {
+      $("kbContext").style.display   = "block";
+      $("kbContextText").textContent = data.kb_response;
     }
 
-    // 7. Audio
     lastAudio = data.audio_b64;
     $("playAudioBtn").disabled = !lastAudio;
 
-    // 8. Clear buffer
     classifier.clearBuffer();
     updateBufferUI();
 
@@ -326,7 +325,7 @@ async function processSignPhrase(phrase) {
 
   } catch (e) {
     setStatus("❌ Error: " + e.message, "error");
-    showWolframLog("sign", phrase, "—", "Request failed", "rules", "—");
+    showKnowledgeLog("sign", phrase, "—", "Request failed", "rules", "—");
   }
 }
 
@@ -339,7 +338,7 @@ function playAudio() {
 
 
 // ═══════════════════════════════════════════════════════════════════
-//  DIRECTION 2: SPEECH → WOLFRAM → SMART DISPLAY
+//  DIRECTION 2: SPEECH → KNOWLEDGE ENGINE → SMART DISPLAY
 // ═══════════════════════════════════════════════════════════════════
 
 async function startRecording() {
@@ -413,8 +412,8 @@ function startWebSpeech() {
 }
 
 async function processSpeechText(text) {
-  setStatus(`🧠 Wolfram processing: "${text}"…`);
-  showWolframLog("speech", text, "Querying Wolfram Alpha…", "…");
+  setStatus(`🧠 Processing: "${text}"…`);
+  showKnowledgeLog("speech", text, "Looking up…", "…");
 
   try {
     const res  = await fetch("/api/speech/process", {
@@ -424,31 +423,27 @@ async function processSpeechText(text) {
     });
     const data = await res.json();
 
-    // 1. Update inline Wolfram debug log
-    showWolframLog(
+    showKnowledgeLog(
       "speech",
       data.original,
-      data.wolfram_query,
-      data.wolfram_response,
-      data.wolfram_method,
+      data.kb_topic,
+      data.kb_response,
+      data.method,
       data.display
     );
 
-    // 2. Update full-width Wolfram Intelligence panel
-    updateWolframInsights(
-      data.wolfram_query,
-      data.wolfram_response,
-      data.wolfram_category,
-      data.wolfram_success
+    updateKnowledgeInsights(
+      data.kb_topic,
+      data.kb_response,
+      data.kb_category,
+      data.kb_success
     );
 
-    // 3. Smart display
     $("smartDisplay").style.display = "block";
     $("smartInner").textContent     = data.display;
     $("alertIndicator").className   = "alert-indicator " +
       (data.emergency ? "emergency" : "");
 
-    // 4. Emergency card
     if (data.emergency) {
       $("emergencyCard").style.display = "block";
       $("emergencyBody").textContent   = data.display;
@@ -456,7 +451,6 @@ async function processSpeechText(text) {
       $("emergencyCard").style.display = "none";
     }
 
-    // 5. Translation
     if (data.translated && getLang() !== "en") {
       $("speechTransRow").style.display = "flex";
       $("speechTransText").textContent  = data.translated;
@@ -472,7 +466,7 @@ async function processSpeechText(text) {
 
   } catch (e) {
     setStatus("❌ Error: " + e.message, "error");
-    showWolframLog("speech", text, "—", "Request failed", "rules", "—");
+    showKnowledgeLog("speech", text, "—", "Request failed", "rules", "—");
   }
 }
 
