@@ -112,9 +112,9 @@
         <span class="res-label">Translation</span>
         <span class="res-trans" id="translatedSentence">—</span>
       </div>
-      <div class="wf-context" id="wfContext" style="display:none">
+      <div class="wf-context" id="kbContext" style="display:none">
         <span class="res-label">Wolfram Context</span>
-        <span id="wfContextText"></span>
+        <span id="kbContextText"></span>
       </div>
       <div class="res-footer">
         <span class="method-tag" id="methodTag">—</span>
@@ -125,8 +125,8 @@
       </div>
     </div>
 
-    <!-- Wolfram log -->
-    <div class="wf-log" id="wolframLog" style="display:none">
+    <!-- Knowledge Engine debug log -->
+    <div class="wf-log" id="knowledgeLog" style="display:none">
       <div class="wf-log-title">🧠 Wolfram Intelligence Log</div>
     </div>
   </section>
@@ -187,8 +187,8 @@
       <div class="trans-text" id="speechTransText">—</div>
     </div>
 
-    <!-- Wolfram log -->
-    <div class="wf-log" id="wolframLogSpeech" style="display:none">
+    <!-- Knowledge Engine debug log -->
+    <div class="wf-log" id="knowledgeLogSpeech" style="display:none">
       <div class="wf-log-title">🧠 Wolfram Intelligence Log</div>
     </div>
   </section>
@@ -222,13 +222,6 @@
     </div>
   </div>
 </section>
- 
-<!-- Also rename any inline debug-log container ids if present:
-     wolframLog        -> knowledgeLog
-     wolframLogSpeech  -> knowledgeLogSpeech
-     wfContext         -> kbContext
-     wfContextText     -> kbContextText
-     (These are referenced by the new app.js automatically.) -->
 
 <!-- ── STATUS BAR ────────────────────────────────────────────────────── -->
 <div class="status-bar">
