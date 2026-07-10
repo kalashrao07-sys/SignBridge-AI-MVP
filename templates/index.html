@@ -28,9 +28,9 @@
   </div>
   <div class="nav-center">
     <span class="badge-nav">AI for Social Impact</span>
-    <span class="wolfram-badge" id="wolframBadge">
-      🧠 Wolfram Alpha
-      {% if wolfram_active %}<span class="dot-green">●</span>{% else %}<span class="dot-yellow">●</span>{% endif %}
+    <span class="knowledge-badge" id="knowledgeBadge">
+      🧠 Knowledge Engine
+      {% if kb_active %}<span class="dot-green">●</span>{% else %}<span class="dot-yellow">●</span>{% endif %}
     </span>
   </div>
   <div class="nav-right">
@@ -49,7 +49,7 @@
   <p>Two-way AI communication bridge for Deaf &amp; Speech-Impaired communities</p>
   <div class="pills">
     <span>✋ Sign → Voice</span><span>🎙️ Speech → Text</span>
-    <span>🧠 Wolfram Semantic AI</span><span>🌐 3 Languages</span>
+    <span>🧠 Offline Knowledge Engine</span><span>🌐 3 Languages</span>
     <span>🚨 Emergency Detection</span>
   </div>
 </div>
@@ -112,9 +112,9 @@
         <span class="res-label">Translation</span>
         <span class="res-trans" id="translatedSentence">—</span>
       </div>
-      <div class="wf-context" id="wfContext" style="display:none">
-        <span class="res-label">Wolfram Context</span>
-        <span id="wfContextText"></span>
+      <div class="kb-context" id="kbContext" style="display:none">
+        <span class="res-label">Knowledge Context</span>
+        <span id="kbContextText"></span>
       </div>
       <div class="res-footer">
         <span class="method-tag" id="methodTag">—</span>
@@ -125,9 +125,9 @@
       </div>
     </div>
 
-    <!-- Wolfram log -->
-    <div class="wf-log" id="wolframLog" style="display:none">
-      <div class="wf-log-title">🧠 Wolfram Intelligence Log</div>
+    <!-- Knowledge Engine debug log -->
+    <div class="kb-log" id="knowledgeLog" style="display:none">
+      <div class="kb-log-title">🧠 Knowledge Engine Log</div>
     </div>
   </section>
 
@@ -187,9 +187,9 @@
       <div class="trans-text" id="speechTransText">—</div>
     </div>
 
-    <!-- Wolfram log -->
-    <div class="wf-log" id="wolframLogSpeech" style="display:none">
-      <div class="wf-log-title">🧠 Wolfram Intelligence Log</div>
+    <!-- Knowledge Engine debug log -->
+    <div class="kb-log" id="knowledgeLogSpeech" style="display:none">
+      <div class="kb-log-title">🧠 Knowledge Engine Log</div>
     </div>
   </section>
 </main>
@@ -223,12 +223,6 @@
   </div>
 </section>
  
-<!-- Also rename any inline debug-log container ids if present:
-     wolframLog        -> knowledgeLog
-     wolframLogSpeech  -> knowledgeLogSpeech
-     wfContext         -> kbContext
-     wfContextText     -> kbContextText
-     (These are referenced by the new app.js automatically.) -->
 
 <!-- ── STATUS BAR ────────────────────────────────────────────────────── -->
 <div class="status-bar">
