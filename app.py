@@ -7,6 +7,9 @@ layer. Fully owned, fully auditable, fully offline-capable core logic.
 """
 
 import os, re, io, base64
+from functools import lru_cache
+from typing import Optional
+
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 from gtts import gTTS
@@ -14,12 +17,18 @@ from deep_translator import GoogleTranslator
 from dotenv import load_dotenv
 
 from knowledge_base import lookup_knowledge, knowledge_base_size
+from sign_vocabulary import text_to_sign_sequence, sign_vocabulary_size
 
 load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "signbridge-secret-2024")
+
+# Requests longer than this are rejected before hitting gTTS / translate,
+# which have their own undocumented limits and get slow/unreliable on
+# very long input.
+MAX_INPUT_LEN = 500
 
 # ─── Emergency keyword set ────────────────────────────────────────────
 EMERGENCY_KEYWORDS = {
@@ -101,7 +110,10 @@ def rule_simplify(text: str) -> str:
     return result[0].upper() + result[1:] if result else text
 
 
-def text_to_speech_b64(text: str, lang: str = "en") -> str | None:
+# NOTE (fix): `str | None` (PEP 604) requires Python 3.10+. The README
+# advertises Python 3.8+ support, and that mismatch previously caused the
+# app to fail at import time on 3.8/3.9. Use typing.Optional instead.
+def text_to_speech_b64(text: str, lang: str = "en") -> Optional[str]:
     LANG_MAP = {"en": "en", "hi": "hi", "kn": "kn"}
     try:
         tts = gTTS(text=text, lang=LANG_MAP.get(lang, "en"), slow=False)
@@ -113,6 +125,11 @@ def text_to_speech_b64(text: str, lang: str = "en") -> str | None:
         return None
 
 
+# NOTE (fix): identical phrases were being re-translated on every request.
+# The knowledge base / grammar rules only ever produce a small, repeating
+# set of sentences, so an in-memory cache removes redundant network calls
+# to Google Translate and cuts response latency for repeat phrases.
+@lru_cache(maxsize=256)
 def translate_text(text: str, target: str) -> str:
     LANG_MAP = {"en": "en", "hi": "hi", "kn": "kn"}
     code = LANG_MAP.get(target, "en")
@@ -138,13 +155,6 @@ def process_sign():
     """
     Direction 1: Sign phrase → grammar correction → Knowledge Engine → TTS
 
-    Flow:
-      1. rule_correct()      — ISL SOV→SVO grammar fix
-      2. lookup_knowledge()  — local Knowledge Engine (no network call)
-      3. is_emergency()      — keyword-based emergency flag
-      4. text_to_speech()    — gTTS audio generation
-      5. translate_text()    — Hindi/Kannada if requested
-
     Body: { "phrase": "HELP CHEST PAIN", "lang": "en" }
     """
     data   = request.get_json(silent=True) or {}
@@ -153,6 +163,8 @@ def process_sign():
 
     if not phrase:
         return jsonify({"error": "No phrase provided"}), 400
+    if len(phrase) > MAX_INPUT_LEN:
+        return jsonify({"error": f"Phrase too long (max {MAX_INPUT_LEN} characters)"}), 400
 
     corrected = rule_correct(phrase)
     emergency = is_emergency(phrase)
@@ -184,6 +196,7 @@ def process_sign():
 def process_speech():
     """
     Direction 2: Speech transcript → simplification → Knowledge Engine → display
+                 AND transcript → sign sequence (voice → visual sign language)
 
     Body: { "text": "Please go to the hospital immediately", "lang": "en" }
     """
@@ -193,6 +206,8 @@ def process_speech():
 
     if not text:
         return jsonify({"error": "No text provided"}), 400
+    if len(text) > MAX_INPUT_LEN:
+        return jsonify({"error": f"Text too long (max {MAX_INPUT_LEN} characters)"}), 400
 
     emergency = is_emergency(text)
     insight   = lookup_knowledge(text)
@@ -210,18 +225,25 @@ def process_speech():
     if lang != "en":
         translated = translate_text(simplified, lang)
 
+    # Voice → Sign: best-effort match of spoken words onto the known sign
+    # vocabulary (mirrors SIGN_MAP in gesture.js). Words outside the small
+    # vocabulary are simply skipped — the Smart Display text still covers
+    # the full sentence for anything the sign strip can't represent yet.
+    sign_sequence = text_to_sign_sequence(text)
+
     return jsonify({
-        "original":    text,
-        "simplified":  simplified,
-        "display":     display,
-        "emergency":   emergency,
-        "translated":  translated,
-        "kb_topic":    insight.get("topic"),
-        "kb_response": insight.get("response"),
-        "kb_category": insight.get("category"),
-        "kb_success":  insight.get("success", False),
-        "method":      "knowledge_base" if insight.get("success") else "rules",
-        "lang":        lang,
+        "original":      text,
+        "simplified":    simplified,
+        "display":       display,
+        "emergency":     emergency,
+        "translated":    translated,
+        "kb_topic":      insight.get("topic"),
+        "kb_response":   insight.get("response"),
+        "kb_category":   insight.get("category"),
+        "kb_success":    insight.get("success", False),
+        "method":        "knowledge_base" if insight.get("success") else "rules",
+        "sign_sequence": sign_sequence,
+        "lang":          lang,
     })
 
 
@@ -230,6 +252,8 @@ def tts():
     data  = request.get_json(silent=True) or {}
     text  = data.get("text", "")
     lang  = data.get("lang", "en")
+    if len(text) > MAX_INPUT_LEN:
+        return jsonify({"audio_b64": None, "error": f"Text too long (max {MAX_INPUT_LEN} characters)"}), 400
     audio = text_to_speech_b64(text, lang)
     return jsonify({"audio_b64": audio, "error": None if audio else "TTS failed"})
 
@@ -239,10 +263,10 @@ def health():
     return jsonify({
         "status":          "ok",
         "project":         "SignBridge AI",
-        "version":         "3.0",
+        "version":         "3.1",
         "knowledge_base":  "active",
         "kb_entries":      knowledge_base_size(),
-        "signs_supported": 16,
+        "signs_supported": sign_vocabulary_size(),
         "languages":       ["en", "hi", "kn"],
         "external_deps":   ["gTTS (TTS audio)", "Google Translate (translation)"],
     })
@@ -250,9 +274,9 @@ def health():
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
-    print(f"\n🌉 SignBridge AI v3.0  →  http://localhost:{port}")
+    print(f"\n🌉 SignBridge AI v3.1  →  http://localhost:{port}")
     print(f"   Knowledge Engine : ✅ {knowledge_base_size()} entries, fully local, no API key")
-    print(f"   Signs supported  : 16 gestures")
+    print(f"   Sign vocabulary  : {sign_vocabulary_size()} signs (bidirectional)")
     print(f"   Languages        : English, Hindi, Kannada\n")
     app.run(host="0.0.0.0", port=port,
             debug=os.getenv("FLASK_DEBUG", "true") == "true")
