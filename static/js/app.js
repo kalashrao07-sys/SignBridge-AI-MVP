@@ -12,6 +12,7 @@ let camera        = null;
 let hands         = null;
 let canvasCtx     = null;
 let classifier    = new GestureClassifier();
+window.classifier = classifier;
 let lastAudio     = null;
 let mediaRec      = null;
 let audioChunks   = [];
