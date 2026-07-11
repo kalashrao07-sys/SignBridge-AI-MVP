@@ -1,30 +1,12 @@
 """
 SignBridge AI — Knowledge Engine
 =================================
-Self-contained factual/medical knowledge layer. Replaces the Wolfram Alpha
-dependency entirely — no API key, no network call, no rate limit, no
-external failure mode. Runs fully offline.
-
-IMPORTANT (production note):
-This content is compiled from general public-health and first-aid
-guidance for demonstration purposes. Before any real deployment
-(hospitals, schools, public use), have a licensed medical professional
-review and sign off on every entry in KNOWLEDGE_BASE below. Treat this
-file as a single source of truth that a doctor can audit line-by-line —
-that's the whole point of owning it instead of calling a black-box API.
+Self-contained factual/medical knowledge layer. No API key, no network
+call, no rate limit. Runs fully offline. Unchanged from the original —
+included here only so this patch folder is a complete drop-in set.
 """
 
 import re
-
-# ─────────────────────────────────────────────────────────────────────
-# KNOWLEDGE BASE
-# Ordered by priority — emergency entries are checked first.
-# Each entry:
-#   keywords : list of trigger words/phrases (lowercase)
-#   topic    : short label shown in the debug/insights panel
-#   response : the factual context shown to the user
-#   category : emergency | medical | health | info
-# ─────────────────────────────────────────────────────────────────────
 
 KNOWLEDGE_BASE = [
     {
@@ -230,17 +212,6 @@ KNOWLEDGE_BASE = [
 
 
 def lookup_knowledge(phrase: str) -> dict:
-    """
-    Search the local knowledge base for a matching topic in the given phrase.
-
-    Returns:
-        {
-            "response": str or None,
-            "topic":    str or None,
-            "category": str or None,
-            "success":  bool
-        }
-    """
     if not phrase:
         return {"response": None, "topic": None, "category": None, "success": False}
 
