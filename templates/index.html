@@ -85,6 +85,42 @@
       <div class="det-desc" id="detectedDesc">Show your hand to the camera</div>
     </div>
 
+<div class="calib-panel" id="calibPanel">
+  <div class="calib-hdr">
+    <span class="calib-title">🎯 Calibrate Your Signs</span>
+    <span class="calib-sub">Record 5–10 samples per sign for best accuracy</span>
+  </div>
+
+  <div class="calib-row">
+    <select id="calibSignSelect" class="calib-select">
+      <option value="HELLO">HELLO</option>
+      <option value="YES">YES</option>
+      <option value="GOOD">GOOD</option>
+      <option value="I">I</option>
+      <option value="PLEASE">PLEASE</option>
+      <option value="WATER">WATER</option>
+      <option value="PEACE">PEACE</option>
+      <option value="HELP">HELP</option>
+      <option value="CALL">CALL</option>
+      <option value="FOOD">FOOD</option>
+      <option value="NO">NO</option>
+      <option value="PAIN">PAIN</option>
+      <option value="DOCTOR">DOCTOR</option>
+    </select>
+    <button class="btn primary" id="recordSampleBtn" type="button">📸 Record Sample</button>
+    <span class="calib-count" id="calibCount">0 samples</span>
+  </div>
+
+  <div class="calib-row">
+    <button class="btn ghost" id="clearSignBtn" type="button">Clear this sign</button>
+    <button class="btn ghost" id="clearAllBtn" type="button">Clear all training</button>
+  </div>
+
+  <div class="calib-status" id="calibStatus">
+    Hold the sign steady in front of the camera, then click Record Sample.
+  </div>
+</div>
+
     <!-- Controls -->
     <div class="btn-row">
       <button class="btn primary" id="startCamBtn" onclick="startCamera()" type="button">▶ Start Camera</button>
@@ -235,5 +271,6 @@
 
 <script src="/static/js/gesture.js"></script>
 <script src="/static/js/app.js"></script>
+<script src="/static/js/calibration.js"></script>
 </body>
 </html>
