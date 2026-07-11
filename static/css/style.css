@@ -856,3 +856,38 @@ p { margin: 0; }
   .mic-ring { width: 70px; height: 70px; font-size: 1.5rem; }
   .kb-label { min-width: 110px; }
 }
+
+.sign-sequence-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.9rem 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+}
+
+.sign-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  background: rgba(0, 180, 216, 0.1);
+  border: 1px solid var(--border-accent);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.7rem;
+  min-width: 56px;
+}
+
+.sign-chip-emoji {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.sign-chip-word {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--accent);
+  text-transform: uppercase;
+}
