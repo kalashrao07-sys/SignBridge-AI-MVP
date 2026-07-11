@@ -1,7 +1,7 @@
 /**
  * SignBridge AI — Main Frontend Application
  * Direction 1: Sign Language → Knowledge Engine → Voice
- * Direction 2: Speech → Knowledge Engine → Smart Display
+ * Direction 2: Speech → Knowledge Engine → Smart Display + Sign Sequence
  *
  * Knowledge Engine is fully local (see backend knowledge_base.py) —
  * no external API, no network dependency, no rate limits.
@@ -40,6 +40,13 @@ function setStatus(msg, type = "info") {
   bar.className   = `status-${type}`;
 }
 
+// Small helper so we never build innerHTML out of raw, unescaped values.
+function escapeHtml(str) {
+  return String(str ?? "").replace(/[&<>"']/g, ch => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[ch]));
+}
+
 // ─── Window resize ────────────────────────────────────────────────────
 window.addEventListener("resize", () => {
   if (cameraActive && camera) {
@@ -59,19 +66,11 @@ document.addEventListener("touchstart", () => {}, { passive: true });
 //  KNOWLEDGE ENGINE PANEL
 // ═══════════════════════════════════════════════════════════════════
 
-/**
- * Populate the full-width Knowledge Engine panel at the bottom.
- * Called after every sign phrase or speech text is processed.
- */
 function updateKnowledgeInsights(topic, response, category, success) {
   const panel = $("knowledgeInsightsPanel");
   if (!panel) return;
 
-  if (!topic) {
-    // No match this round — keep panel visible if it already has content,
-    // otherwise leave it hidden until the first real match.
-    return;
-  }
+  if (!topic) return;
 
   panel.style.display = "block";
 
@@ -83,9 +82,7 @@ function updateKnowledgeInsights(topic, response, category, success) {
   catEl.className   = "ki-category ki-cat-" + (category || "general");
 
   const dotEl = $("kbStatusDot");
-  if (dotEl) {
-    dotEl.style.color = success ? "#44ff88" : "#ff6b6b";
-  }
+  if (dotEl) dotEl.style.color = success ? "#44ff88" : "#ff6b6b";
 
   if (success) {
     kbQueryCount++;
@@ -94,9 +91,6 @@ function updateKnowledgeInsights(topic, response, category, success) {
   }
 }
 
-/**
- * Populate the inline Knowledge Engine debug log inside each panel.
- */
 function showKnowledgeLog(panel, input, topic, response, method, output) {
   const el = $(panel === "sign" ? "knowledgeLog" : "knowledgeLogSpeech");
   if (!el) return;
@@ -104,24 +98,54 @@ function showKnowledgeLog(panel, input, topic, response, method, output) {
   el.innerHTML = `
     <div class="kb-row">
       <span class="kb-label">📥 Input</span>
-      <span class="kb-val">"${input || "—"}"</span>
+      <span class="kb-val">"${escapeHtml(input || "—")}"</span>
     </div>
     <div class="kb-row">
       <span class="kb-label">🔍 Topic Matched</span>
-      <span class="kb-val kb-topic">${topic || "—"}</span>
+      <span class="kb-val kb-topic">${escapeHtml(topic || "—")}</span>
     </div>
     <div class="kb-row">
       <span class="kb-label">📤 Knowledge Engine</span>
-      <span class="kb-val kb-resp">${response || "—"}</span>
+      <span class="kb-val kb-resp">${escapeHtml(response || "—")}</span>
     </div>
     ${output ? `<div class="kb-row">
       <span class="kb-label">✅ Output</span>
-      <span class="kb-val kb-out">"${output}"</span>
+      <span class="kb-val kb-out">"${escapeHtml(output)}"</span>
     </div>` : ""}
     ${method ? `<div class="kb-method">via ${
       method === "knowledge_base" ? "🧠 Knowledge Engine" : "⚙️ Rule Engine"
     }</div>` : ""}
   `;
+}
+
+
+// ═══════════════════════════════════════════════════════════════════
+//  VOICE → SIGN  (sign sequence strip)
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * Render the ordered list of matched signs returned by the backend as a
+ * strip of emoji chips under the Smart Display. Words with no known sign
+ * are simply absent from `sequence` — the Smart Display text still shows
+ * the full sentence.
+ */
+function renderSignSequence(sequence) {
+  const wrap = $("signSequenceStrip");
+  if (!wrap) return;
+
+  if (!sequence || sequence.length === 0) {
+    wrap.style.display = "none";
+    wrap.innerHTML = "";
+    return;
+  }
+
+  wrap.style.display = "flex";
+  wrap.innerHTML = sequence.map(item => `
+    <div class="sign-chip" title="${escapeHtml(item.desc || item.sign)}">
+      <span class="sign-chip-emoji">${item.emoji || "❓"}</span>
+      <span class="sign-chip-word">${escapeHtml(item.sign)}</span>
+    </div>
+  `).join("");
 }
 
 
@@ -273,6 +297,15 @@ async function processSignPhrase(phrase) {
     });
     const data = await res.json();
 
+    // Fix: fetch() does not throw on 4xx/5xx — without this check a
+    // backend error response (e.g. "No phrase provided") silently
+    // rendered as "undefined" in every field below.
+    if (!res.ok || data.error) {
+      setStatus("❌ " + (data.error || "Request failed"), "error");
+      showKnowledgeLog("sign", phrase, "—", data.error || "Request failed", "rules", "—");
+      return;
+    }
+
     showKnowledgeLog(
       "sign",
       data.original,
@@ -338,7 +371,7 @@ function playAudio() {
 
 
 // ═══════════════════════════════════════════════════════════════════
-//  DIRECTION 2: SPEECH → KNOWLEDGE ENGINE → SMART DISPLAY
+//  DIRECTION 2: SPEECH → KNOWLEDGE ENGINE → SMART DISPLAY + SIGN SEQUENCE
 // ═══════════════════════════════════════════════════════════════════
 
 async function startRecording() {
@@ -423,6 +456,14 @@ async function processSpeechText(text) {
     });
     const data = await res.json();
 
+    // Fix: same fetch-error-handling gap as processSignPhrase above.
+    if (!res.ok || data.error) {
+      setStatus("❌ " + (data.error || "Request failed"), "error");
+      showKnowledgeLog("speech", text, "—", data.error || "Request failed", "rules", "—");
+      renderSignSequence([]);
+      return;
+    }
+
     showKnowledgeLog(
       "speech",
       data.original,
@@ -443,6 +484,9 @@ async function processSpeechText(text) {
     $("smartInner").textContent     = data.display;
     $("alertIndicator").className   = "alert-indicator " +
       (data.emergency ? "emergency" : "");
+
+    // Voice → Sign: render the matched sign sequence strip.
+    renderSignSequence(data.sign_sequence);
 
     if (data.emergency) {
       $("emergencyCard").style.display = "block";
