@@ -936,3 +936,191 @@ p { margin: 0; }
   color: var(--text-muted);
   min-height: 1.1rem;
 }
+
+/* ════════════════════ APPEND TO static/css/style.css ════════════════════ */
+
+/* ── Multi-page nav ── */
+.nav-links {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.nav-link {
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.5rem 0.9rem;
+  border-radius: 20px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.nav-link:hover { background: rgba(0, 180, 216, 0.1); color: var(--text-primary); }
+
+.nav-link.active {
+  background: rgba(0, 180, 216, 0.18);
+  color: var(--accent);
+  border: 1px solid var(--border-accent);
+}
+
+.nav-user {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-left: 0.8rem;
+  padding-left: 0.8rem;
+  border-left: 1px solid var(--border-soft);
+}
+
+.nav-username {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.btn-small { padding: 0.4rem 0.8rem; font-size: 0.75rem; flex: none; }
+
+/* ── Flash messages ── */
+.flash-wrap {
+  max-width: 700px;
+  margin: 0.8rem auto 0;
+  padding: 0 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.flash-msg {
+  padding: 0.6rem 1rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.flash-error   { background: var(--danger-bg);  color: var(--danger); border: 1px solid rgba(255,93,93,0.4); }
+.flash-success { background: var(--success-bg); color: var(--success); border: 1px solid rgba(46,204,113,0.4); }
+
+/* ── Single-panel layout (sign-to-speech / speech-to-sign / calibrate pages) ── */
+.panels-single {
+  grid-template-columns: 1fr;
+  max-width: 720px;
+}
+
+.hero-compact { padding: 1.6rem 1.5rem 1rem; }
+
+.panel-footnote {
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.panel-footnote a { color: var(--accent); text-decoration: none; font-weight: 700; }
+.panel-footnote a:hover { text-decoration: underline; }
+
+/* ── Home dashboard cards ── */
+.home-cards {
+  max-width: 1100px;
+  margin: 1rem auto 2rem;
+  padding: 0 1.5rem;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.2rem;
+}
+
+@media (max-width: 900px) {
+  .home-cards { grid-template-columns: 1fr; }
+}
+
+.home-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  padding: 1.6rem 1.4rem;
+  text-decoration: none;
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.home-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--border-accent);
+}
+
+.home-card-icon { font-size: 2.2rem; }
+.home-card h3 { margin: 0; font-size: 1.1rem; }
+.home-card p { margin: 0; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5; flex: 1; }
+.home-card-cta { color: var(--accent); font-weight: 700; font-size: 0.85rem; }
+
+/* ── Auth pages (login / signup) ── */
+.auth-body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-base);
+  padding: 1.5rem;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  padding: 2rem 1.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 0.6rem;
+}
+
+.auth-title { margin: 0; font-size: 1.3rem; }
+.auth-sub   { margin: 0 0 0.8rem; color: var(--text-secondary); font-size: 0.85rem; }
+
+.auth-form { display: flex; flex-direction: column; gap: 0.3rem; }
+
+.auth-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 700;
+  margin-top: 0.6rem;
+}
+
+.auth-input {
+  background: var(--bg-card-alt);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 0.65rem 0.8rem;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.auth-input:focus { outline: none; border-color: var(--accent); }
+
+.auth-submit { margin-top: 1.1rem; width: 100%; }
+
+.auth-footer {
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  margin-top: 1rem;
+}
+
+.auth-footer a { color: var(--accent); font-weight: 700; text-decoration: none; }
+.auth-footer a:hover { text-decoration: underline; }
