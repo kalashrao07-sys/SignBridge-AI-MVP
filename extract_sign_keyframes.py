@@ -1,59 +1,67 @@
 """
-SignBridge AI — Sign Animation Keyframe Extractor
-====================================================
-Reuses the SAME Kaggle landmark dataset used for training the
-recognizer, but this time to build animation data for the
-speech -> sign direction.
+SignBridge AI — Sign Animation Keyframe Extractor (v2 — fixed selection logic)
+================================================================================
+FIX FROM v1: the previous version rejected any recording with >30% missing
+hand landmarks and moved on, even though the very next line of code was
+capable of repairing missing data via interpolation. It also stopped at
+the FIRST recording that passed the threshold instead of comparing
+candidates — so a mediocre early sample could win over a much cleaner
+one later in the list. Real recordings in this dataset often have one
+hand out of frame, which is normal and repairable, not a reason to
+discard the sample outright.
 
-WHY THIS APPROACH:
-  Generating a signing avatar from scratch (pose-generation model) is
-  out of scope for a hackathon timeline. But we don't need to generate
-  anything — the dataset already contains real people performing each
-  sign correctly, as landmark coordinates. We just pick one clean
-  sample per word and replay it as an animated skeleton in the
-  browser. This is genuinely visually correct (it's real recorded
-  sign motion, not a fabricated pose) without requiring any
-  generative model.
+NEW LOGIC:
+  1. Score every candidate (or up to MAX_CANDIDATES, for speed) by its
+     NaN ratio in the hand landmarks.
+  2. Pick the lowest-NaN-ratio candidate.
+  3. Interpolate to repair the remaining gaps.
+  4. Only warn (don't discard) if even the best candidate is still poor
+     quality — that's a real signal worth seeing, not silently hiding it.
 
-OUTPUT:
-  sign_animations.json — { "help": [[x,y,x,y,...], ...frames], ... }
-  One file, small enough to ship as a static asset, loaded by the
-  frontend animation renderer (see roadmap step 4).
+OUTPUT: sign_animations.json — { "hello": [[[x,y], ...48 pts], ...frames], ... }
 """
 
 import json
 import os
+import random
 
 import numpy as np
 import pandas as pd
 
-DATA_DIR = "./data"
+DATA_DIR = "./asl_80"          # <-- your actual folder name
 OUT_PATH = "sign_animations.json"
-TARGET_FRAMES = 24  # smooth enough for playback, small file size
+TARGET_FRAMES = 24
+MAX_CANDIDATES = 20             # cap per sign for speed; raise if signs still fail
+WARN_NAN_RATIO = 0.5            # flag (not reject) samples worse than this
 
-# Must match train_sign_model.py's landmark selection so recognition
-# and animation are visually/semantically consistent.
 POSE_KEEP = [11, 12, 13, 14, 15, 16]
 N_HAND = 21
 
 SELECTED_SIGNS = [
-    "help", "water", "pain", "yes", "no", "hello", "please",
-    "eat", "drink", "sick", "hurt", "more", "bathroom", "hot", "cold",
+    "hello", "drink", "food", "listen", "talk", "think", "bye",
+    "home", "look", "taste", "sleepy", "cry", "flower", "mom", "uncle",
 ]
 
 
-def extract_one_clean_sample(paths: list[str]) -> list | None:
-    """Try each candidate sequence for this sign until one has usable
-    hand data throughout, return it as a list of frames of [x,y] pairs
-    for left hand (21), right hand (21), and pose (6) = 48 points/frame."""
-    for path in paths:
-        df = pd.read_parquet(os.path.join(DATA_DIR, path))
+def extract_one_clean_sample(sign: str, paths: list[str]) -> list | None:
+    candidates = paths[:MAX_CANDIDATES]
+    random.shuffle(candidates)  # avoid always favoring one participant's samples
+
+    scored = []
+    for path in candidates:
+        full_path = os.path.join(DATA_DIR, path)
+        try:
+            df = pd.read_parquet(full_path)
+        except Exception as e:
+            print(f"    [{sign}] ⚠️ couldn't read {path}: {e}")
+            continue
+
         frames = sorted(df["frame"].unique())
         if len(frames) < 4:
+            print(f"    [{sign}] {path}: only {len(frames)} frames — skipping (too short)")
             continue
 
         per_frame = []
-        valid = True
         for f in frames:
             fdf = df[df["frame"] == f]
             left = _points(fdf, "left_hand", range(N_HAND))
@@ -61,15 +69,23 @@ def extract_one_clean_sample(paths: list[str]) -> list | None:
             pose = _points(fdf, "pose", POSE_KEEP)
             per_frame.append(left + right + pose)
 
-        arr = np.array(per_frame, dtype=np.float32)  # (frames, 96)
-        nan_ratio = np.isnan(arr[:, : N_HAND * 2 * 2]).mean()
-        if nan_ratio > 0.3:
-            continue  # too much missing hand data, try next sample
+        arr = np.array(per_frame, dtype=np.float32)
+        nan_ratio = float(np.isnan(arr[:, : N_HAND * 2 * 2]).mean())
+        print(f"    [{sign}] {path}: nan_ratio={nan_ratio:.2f}, frames={len(frames)}")
+        scored.append((nan_ratio, arr))
 
-        arr = _fill_and_resample(arr, TARGET_FRAMES)
-        return arr.reshape(TARGET_FRAMES, -1, 2).tolist()  # [[ [x,y], ... 48 pts ], ...frames]
+    if not scored:
+        return None
 
-    return None
+    scored.sort(key=lambda t: t[0])
+    best_ratio, best_arr = scored[0]
+
+    if best_ratio > WARN_NAN_RATIO:
+        print(f"    [{sign}] ⚠️ best candidate still has {best_ratio:.0%} missing hand data — "
+              f"animation may look imprecise for this sign")
+
+    repaired = _fill_and_resample(best_arr, TARGET_FRAMES)
+    return repaired.reshape(TARGET_FRAMES, -1, 2).tolist()
 
 
 def _points(fdf, type_name, indices):
@@ -104,16 +120,19 @@ def main():
         if not candidates:
             print(f"⚠️  '{sign}' not found in train.csv — skipping")
             continue
-        result = extract_one_clean_sample(candidates)
+
+        print(f"Processing '{sign}' ({len(candidates)} candidates available)...")
+        result = extract_one_clean_sample(sign, candidates)
         if result is None:
-            print(f"⚠️  No clean sample found for '{sign}' — skipping")
+            print(f"❌ '{sign}': no usable sample found even after relaxed matching")
             continue
+
         animations[sign] = result
-        print(f"✅ {sign}: {len(candidates)} candidates available, using 1")
+        print(f"✅ {sign}: extracted successfully\n")
 
     with open(OUT_PATH, "w") as f:
         json.dump(animations, f)
-    print(f"\nSaved {len(animations)} sign animations to {OUT_PATH}")
+    print(f"\nSaved {len(animations)}/{len(SELECTED_SIGNS)} sign animations to {OUT_PATH}")
 
 
 if __name__ == "__main__":
