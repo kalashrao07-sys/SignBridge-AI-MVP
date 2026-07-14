@@ -4,6 +4,9 @@ venv/
 # Environment Variables
 .env
 
+#Dataset
+data/
+
 # Python
 __pycache__/
 *.pyc
