@@ -38,8 +38,16 @@ POSE_KEEP = [11, 12, 13, 14, 15, 16]
 N_HAND = 21
 
 SELECTED_SIGNS = [
-    "hello", "drink", "food", "listen", "talk", "think", "bye",
-    "home", "look", "taste", "sleepy", "cry", "flower", "mom", "uncle",
+    "airplane", "alligator", "aunt", "awake", "balloon", "because", "bee", "bird",
+    "blow", "brother", "brown", "bye", "cat", "closet", "cow", "cry", "doll",
+    "donkey", "drink", "dry", "duck", "ear", "eye", "farm", "find", "fireman",
+    "first", "flower", "food", "frog", "gift", "glasswindow", "goose", "gum",
+    "hear", "hello", "home", "horse", "icecream", "kiss", "kitty", "lion", "lips",
+    "listen", "look", "loud", "mad", "make", "man", "mom", "mouse", "mouth",
+    "nap", "napkin", "nuts", "old", "orange", "owl", "pajamas", "pen", "pencil",
+    "penny", "pizza", "pretend", "pretty", "sad", "shhh", "sleepy", "sun", "talk",
+    "taste", "think", "tiger", "tooth", "toothbrush", "uncle", "up", "wake",
+    "who", "yesterday",
 ]
 
 
