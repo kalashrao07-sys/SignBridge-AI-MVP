@@ -1,6 +1,7 @@
 """
 SignBridge AI — Flask Backend
 Self-contained Knowledge Engine + TTS + Translation + Emergency Detection
++ session-based authentication (signup/login/logout).
 
 No external knowledge API. No API key. No network call for the knowledge
 layer. Fully owned, fully auditable, fully offline-capable core logic.
@@ -12,18 +13,23 @@ from typing import Optional
 
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
+from flask_login import login_required
 from gtts import gTTS
 from deep_translator import GoogleTranslator
 from dotenv import load_dotenv
 
 from knowledge_base import lookup_knowledge, knowledge_base_size
 from sign_vocabulary import text_to_sign_sequence, sign_vocabulary_size
+from auth import auth_bp, init_auth
 
 load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "signbridge-secret-2024")
+
+init_auth(app)
+app.register_blueprint(auth_bp)
 
 # Requests longer than this are rejected before hitting gTTS / translate,
 # which have their own undocumented limits and get slow/unreliable on
@@ -110,9 +116,6 @@ def rule_simplify(text: str) -> str:
     return result[0].upper() + result[1:] if result else text
 
 
-# NOTE (fix): `str | None` (PEP 604) requires Python 3.10+. The README
-# advertises Python 3.8+ support, and that mismatch previously caused the
-# app to fail at import time on 3.8/3.9. Use typing.Optional instead.
 def text_to_speech_b64(text: str, lang: str = "en") -> Optional[str]:
     LANG_MAP = {"en": "en", "hi": "hi", "kn": "kn"}
     try:
@@ -125,10 +128,6 @@ def text_to_speech_b64(text: str, lang: str = "en") -> Optional[str]:
         return None
 
 
-# NOTE (fix): identical phrases were being re-translated on every request.
-# The knowledge base / grammar rules only ever produce a small, repeating
-# set of sentences, so an in-memory cache removes redundant network calls
-# to Google Translate and cuts response latency for repeat phrases.
 @lru_cache(maxsize=256)
 def translate_text(text: str, target: str) -> str:
     LANG_MAP = {"en": "en", "hi": "hi", "kn": "kn"}
@@ -142,15 +141,39 @@ def translate_text(text: str, target: str) -> str:
 
 
 # ═══════════════════════════════════════════════════════════════════
-#  ROUTES
+#  PAGE ROUTES
 # ═══════════════════════════════════════════════════════════════════
 
 @app.route("/")
-def index():
-    return render_template("index.html", kb_active=True)
+@login_required
+def home():
+    return render_template("home.html")
 
+
+@app.route("/sign-to-speech")
+@login_required
+def sign_to_speech_page():
+    return render_template("sign_to_speech.html", kb_active=True)
+
+
+@app.route("/speech-to-sign")
+@login_required
+def speech_to_sign_page():
+    return render_template("speech_to_sign.html", kb_active=True)
+
+
+@app.route("/calibrate")
+@login_required
+def calibration_page():
+    return render_template("calibration.html")
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  API ROUTES
+# ═══════════════════════════════════════════════════════════════════
 
 @app.route("/api/sign/process", methods=["POST"])
+@login_required
 def process_sign():
     """
     Direction 1: Sign phrase → grammar correction → Knowledge Engine → TTS
@@ -193,6 +216,7 @@ def process_sign():
 
 
 @app.route("/api/speech/process", methods=["POST"])
+@login_required
 def process_speech():
     """
     Direction 2: Speech transcript → simplification → Knowledge Engine → display
@@ -225,10 +249,6 @@ def process_speech():
     if lang != "en":
         translated = translate_text(simplified, lang)
 
-    # Voice → Sign: best-effort match of spoken words onto the known sign
-    # vocabulary (mirrors SIGN_MAP in gesture.js). Words outside the small
-    # vocabulary are simply skipped — the Smart Display text still covers
-    # the full sentence for anything the sign strip can't represent yet.
     sign_sequence = text_to_sign_sequence(text)
 
     return jsonify({
@@ -248,6 +268,7 @@ def process_speech():
 
 
 @app.route("/api/tts", methods=["POST"])
+@login_required
 def tts():
     data  = request.get_json(silent=True) or {}
     text  = data.get("text", "")
@@ -260,10 +281,12 @@ def tts():
 
 @app.route("/api/health")
 def health():
+    # Deliberately left unauthenticated — health checks (uptime monitors,
+    # Render's own probe) shouldn't need a logged-in session.
     return jsonify({
         "status":          "ok",
         "project":         "SignBridge AI",
-        "version":         "3.1",
+        "version":         "3.2",
         "knowledge_base":  "active",
         "kb_entries":      knowledge_base_size(),
         "signs_supported": sign_vocabulary_size(),
@@ -274,9 +297,10 @@ def health():
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
-    print(f"\n🌉 SignBridge AI v3.1  →  http://localhost:{port}")
+    print(f"\n🌉 SignBridge AI v3.2  →  http://localhost:{port}")
     print(f"   Knowledge Engine : ✅ {knowledge_base_size()} entries, fully local, no API key")
     print(f"   Sign vocabulary  : {sign_vocabulary_size()} signs (bidirectional)")
-    print(f"   Languages        : English, Hindi, Kannada\n")
+    print(f"   Languages        : English, Hindi, Kannada")
+    print(f"   Auth             : session-based (Flask-Login + SQLite)\n")
     app.run(host="0.0.0.0", port=port,
             debug=os.getenv("FLASK_DEBUG", "true") == "true")
