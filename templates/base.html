@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="theme-color" content="#0a1628"/>
+  <title>{% block title %}SignBridge AI{% endblock %} — Breaking Communication Barriers</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet">
+
+  <!-- MediaPipe Hands — runs entirely in browser, no Python needed -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+  <link rel="stylesheet" href="/static/css/style.css"/>
+</head>
+<body>
+
+<!-- ── NAV ──────────────────────────────────────────────────────────── -->
+<nav class="nav">
+  <a href="{{ url_for('home') }}" class="nav-brand">
+    <span class="nav-logo">🌉</span>
+    <span>SignBridge<em> AI</em></span>
+  </a>
+
+  <div class="nav-links">
+    <a href="{{ url_for('sign_to_speech_page') }}"
+       class="nav-link {% if request.endpoint == 'sign_to_speech_page' %}active{% endif %}">
+      ✋ Sign → Speech
+    </a>
+    <a href="{{ url_for('speech_to_sign_page') }}"
+       class="nav-link {% if request.endpoint == 'speech_to_sign_page' %}active{% endif %}">
+      🎙️ Speech → Sign
+    </a>
+    <a href="{{ url_for('calibration_page') }}"
+       class="nav-link {% if request.endpoint == 'calibration_page' %}active{% endif %}">
+      🎯 Calibrate
+    </a>
+  </div>
+
+  <div class="nav-right">
+    <label class="lang-label">Language</label>
+    <select id="langSelect" class="lang-select">
+      <option value="en">🇬🇧 English</option>
+      <option value="hi">🇮🇳 हिंदी</option>
+      <option value="kn">🇮🇳 ಕನ್ನಡ</option>
+    </select>
+
+    {% if current_user.is_authenticated %}
+    <div class="nav-user">
+      <span class="nav-username">👤 {{ current_user.username }}</span>
+      <a href="{{ url_for('auth.logout') }}" class="btn ghost btn-small">Log out</a>
+    </div>
+    {% endif %}
+  </div>
+</nav>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div class="flash-wrap">
+      {% for category, message in messages %}
+        <div class="flash-msg flash-{{ category }}">{{ message }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+
+{% block content %}{% endblock %}
+
+<!-- Shared knowledge insights panel — populated by app.js on the
+     sign-to-speech and speech-to-sign pages, harmlessly unused
+     (stays hidden) elsewhere. -->
+<section class="kb-insights-panel" id="knowledgeInsightsPanel" style="display:none">
+  <div class="kb-insights-header">
+    <span class="kb-insights-icon">🧠</span>
+    <div>
+      <h3>SignBridge Knowledge Engine</h3>
+      <p>Self-contained medical &amp; factual knowledge layer &mdash; runs fully offline, no external API</p>
+    </div>
+    <div class="kb-stats">
+      <span class="kb-query-count">Matches this session: <strong id="kbQueryCount">0</strong></span>
+      <span class="kb-status-dot" id="kbStatusDot">●</span>
+    </div>
+  </div>
+  <div class="kb-insights-body">
+    <div class="kb-insight-col">
+      <div class="kb-insight-label">🔍 Topic Matched</div>
+      <div class="kb-insight-query" id="kiTopic">—</div>
+    </div>
+    <div class="kb-insight-col kb-col-wide">
+      <div class="kb-insight-label">📡 Knowledge Engine Response</div>
+      <div class="kb-insight-response" id="kiResponse">—</div>
+    </div>
+    <div class="kb-insight-col">
+      <div class="kb-insight-label">🏷️ Category</div>
+      <div id="kiCategory" class="ki-category">—</div>
+    </div>
+  </div>
+</section>
+
+<!-- ── STATUS BAR ────────────────────────────────────────────────────── -->
+<div class="status-bar">
+  <span id="statusMsg">🌉 SignBridge AI ready</span>
+</div>
+
+<audio id="ttsAudio" style="display:none"></audio>
+
+<script src="/static/js/gesture.js"></script>
+<script src="/static/js/app.js"></script>
+<script src="/static/js/calibration.js"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>
