@@ -4,8 +4,7 @@
 > **OSC AI BUILD 1.0 — AI for Social Impact**
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-Render-46E3B7?style=for-the-badge)](https://signbridge-ai-9rzh.onrender.com/)
-[![Demo Video](https://img.shields.io/badge/Demo%20Video-YouTube-FF0000?style=for-the-badge)](https://youtu.be/YOUR_VIDEO_LINK)
-[![GitHub](https://img.shields.io/badge/GitHub-Public-181717?style=for-the-badge)](https://github.com/kalashrao07-sys/SignBridge-AI)
+[![Demo Video](https://img.shields.io/badge/Demo%20Video-Click_Me-FF0000?style=for-the-badge)](https://youtu.be/YOUR_VIDEO_LINK)
 
 ---
 
