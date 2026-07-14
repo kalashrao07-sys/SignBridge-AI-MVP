@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Log in — SignBridge AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css"/>
+</head>
+<body class="auth-body">
+
+<div class="auth-card">
+  <div class="auth-brand">
+    <span class="nav-logo">🌉</span>
+    <span>SignBridge<em> AI</em></span>
+  </div>
+  <h1 class="auth-title">Welcome back</h1>
+  <p class="auth-sub">Log in to continue</p>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="flash-wrap">
+        {% for category, message in messages %}
+          <div class="flash-msg flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <form method="POST" class="auth-form">
+    <label class="auth-label" for="identifier">Username or email</label>
+    <input class="auth-input" type="text" id="identifier" name="identifier" required autofocus/>
+
+    <label class="auth-label" for="password">Password</label>
+    <input class="auth-input" type="password" id="password" name="password" required/>
+
+    <button class="btn primary auth-submit" type="submit">Log in</button>
+  </form>
+
+  <p class="auth-footer">Don't have an account? <a href="{{ url_for('auth.signup') }}">Sign up</a></p>
+</div>
+
+</body>
+</html>
