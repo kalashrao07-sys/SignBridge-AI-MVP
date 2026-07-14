@@ -7,7 +7,7 @@ against a wasted extraction run.
 import os
 import pandas as pd
 
-DATA_DIR = "./asl_80"  # <-- update if your folder is named/located differently
+DATA_DIR = "./data"  # <-- update if your folder is named/located differently
 
 train_csv_path = os.path.join(DATA_DIR, "train.csv")
 print(f"Looking for: {train_csv_path}")

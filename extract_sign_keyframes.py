@@ -28,7 +28,7 @@ import random
 import numpy as np
 import pandas as pd
 
-DATA_DIR = "./asl_80"          # <-- your actual folder name
+DATA_DIR = "./data"          # <-- your actual folder name
 OUT_PATH = "sign_animations.json"
 TARGET_FRAMES = 24
 MAX_CANDIDATES = 20             # cap per sign for speed; raise if signs still fail
