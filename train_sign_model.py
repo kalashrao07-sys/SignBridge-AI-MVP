@@ -39,8 +39,16 @@ BATCH_SIZE = 16
 # EDIT THIS: words you confirmed exist in sign_to_prediction_index_map.json
 # AND matter for your emergency/communication use case.
 SELECTED_SIGNS = [
-    "help", "water", "pain", "yes", "no", "hello", "please",
-    "eat", "drink", "sick", "hurt", "more", "bathroom", "hot", "cold",
+    "airplane", "alligator", "aunt", "awake", "balloon", "because", "bee", "bird",
+    "blow", "brother", "brown", "bye", "cat", "closet", "cow", "cry", "doll",
+    "donkey", "drink", "dry", "duck", "ear", "eye", "farm", "find", "fireman",
+    "first", "flower", "food", "frog", "gift", "glasswindow", "goose", "gum",
+    "hear", "hello", "home", "horse", "icecream", "kiss", "kitty", "lion", "lips",
+    "listen", "look", "loud", "mad", "make", "man", "mom", "mouse", "mouth",
+    "nap", "napkin", "nuts", "old", "orange", "owl", "pajamas", "pen", "pencil",
+    "penny", "pizza", "pretend", "pretty", "sad", "shhh", "sleepy", "sun", "talk",
+    "taste", "think", "tiger", "tooth", "toothbrush", "uncle", "up", "wake",
+    "who", "yesterday",
 ]
 
 # Landmark indices we keep (MediaPipe Holistic conventions used by the
