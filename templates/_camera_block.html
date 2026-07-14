@@ -1,0 +1,20 @@
+<div class="cam-wrap">
+  <video id="signVideo" autoplay playsinline muted style="display:none;"></video>
+  <canvas id="signCanvas" width="640" height="480" style="width:100%; height:auto;"></canvas>
+  <div class="cam-overlay" id="camOverlay">
+    <span class="cam-icon">📷</span>
+    <p>Click <strong>Start Camera</strong></p>
+    <p class="cam-sub">MediaPipe detects your hand signs in real-time</p>
+  </div>
+  <!-- Detection badge overlaid on canvas -->
+  <div class="det-badge" id="detectionBadge">
+    <span id="detectedSign">—</span>
+    <span class="conf-pill" id="detectedConf">—</span>
+  </div>
+  <div class="det-desc" id="detectedDesc">Show your hand to the camera</div>
+</div>
+
+<div class="btn-row">
+  <button class="btn primary" id="startCamBtn" onclick="startCamera()" type="button">▶ Start Camera</button>
+  <button class="btn secondary" id="stopCamBtn" onclick="stopCamera()" disabled type="button">■ Stop</button>
+</div>
