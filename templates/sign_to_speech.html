@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Sign → Speech{% endblock %}
+
+{% block content %}
+<div class="hero hero-compact">
+  <h1>✋ Sign → <span class="hi">Speech</span></h1>
+  <p>Show a sign to the camera — SignBridge recognises it, corrects the grammar, and speaks it aloud.</p>
+</div>
+
+<main class="panels panels-single">
+  <section class="panel">
+    <div class="panel-hdr">
+      <div class="panel-icon-box">✋</div>
+      <div>
+        <h2>Sign Language</h2>
+        <p class="dir-sub">Deaf/Mute → Hearing Person</p>
+      </div>
+      <div class="dir-tag">Direction 1</div>
+    </div>
+
+    {% include "_camera_block.html" %}
+
+    <div class="btn-row">
+      <button class="btn ghost" onclick="flushBuffer()" type="button">⏩ Send Phrase</button>
+    </div>
+
+    <!-- Buffer -->
+    <div class="buffer-block">
+      <span class="block-label">Sign Buffer</span>
+      <div class="buffer-chips" id="bufferChips"></div>
+    </div>
+
+    <!-- Result -->
+    <div class="result-block" id="signResult" style="display:none">
+      <div class="res-row">
+        <span class="res-label">Raw Phrase</span>
+        <span class="res-raw" id="rawPhrase">—</span>
+      </div>
+      <div class="res-row">
+        <span class="res-label">Corrected Sentence</span>
+        <span class="res-main" id="correctedSentence">—</span>
+      </div>
+      <div class="res-row" id="translatedRow" style="display:none">
+        <span class="res-label">Translation</span>
+        <span class="res-trans" id="translatedSentence">—</span>
+      </div>
+      <div class="kb-context" id="kbContext" style="display:none">
+        <span class="res-label">Knowledge Context</span>
+        <span id="kbContextText"></span>
+      </div>
+      <div class="res-footer">
+        <span class="method-tag" id="methodTag">—</span>
+        <button class="btn play" id="playAudioBtn" onclick="playAudio()" disabled type="button">🔊 Play Voice</button>
+      </div>
+      <div class="emergency-alert" id="emergencyAlert" style="display:none">
+        🚨 EMERGENCY DETECTED — Seek help immediately!
+      </div>
+    </div>
+
+    <!-- Knowledge Engine debug log -->
+    <div class="kb-log" id="knowledgeLog" style="display:none">
+      <div class="kb-log-title">🧠 Knowledge Engine Log</div>
+    </div>
+
+    <p class="panel-footnote">
+      Signs not recognizing well? <a href="{{ url_for('calibration_page') }}">Calibrate your signs →</a>
+    </p>
+  </section>
+</main>
+{% endblock %}
