@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Calibrate{% endblock %}
+
+{% block content %}
+<div class="hero hero-compact">
+  <h1>🎯 Calibrate Your <span class="hi">Signs</span></h1>
+  <p>Record a few samples of your own hand for each sign — this is what makes recognition reliable for your camera, lighting, and hand shape.</p>
+</div>
+
+<main class="panels panels-single">
+  <section class="panel">
+    <div class="panel-hdr">
+      <div class="panel-icon-box">🎯</div>
+      <div>
+        <h2>Sign Calibration</h2>
+        <p class="dir-sub">Train the recognizer on your own hand</p>
+      </div>
+    </div>
+
+    {% include "_camera_block.html" %}
+
+    <div class="calib-panel" id="calibPanel">
+      <div class="calib-hdr">
+        <span class="calib-title">🎯 Calibrate Your Signs</span>
+        <span class="calib-sub">Record 5–10 samples per sign for best accuracy</span>
+      </div>
+
+      <div class="calib-row">
+        <select id="calibSignSelect" class="calib-select">
+          <option value="HELLO">HELLO</option>
+          <option value="YES">YES</option>
+          <option value="GOOD">GOOD</option>
+          <option value="I">I</option>
+          <option value="PLEASE">PLEASE</option>
+          <option value="WATER">WATER</option>
+          <option value="PEACE">PEACE</option>
+          <option value="HELP">HELP</option>
+          <option value="CALL">CALL</option>
+          <option value="FOOD">FOOD</option>
+          <option value="NO">NO</option>
+          <option value="PAIN">PAIN</option>
+          <option value="DOCTOR">DOCTOR</option>
+        </select>
+        <button class="btn primary" id="recordSampleBtn" type="button">📸 Record Sample</button>
+        <span class="calib-count" id="calibCount">0 samples</span>
+      </div>
+
+      <div class="calib-row">
+        <button class="btn ghost" id="clearSignBtn" type="button">Clear this sign</button>
+        <button class="btn ghost" id="clearAllBtn" type="button">Clear all training</button>
+      </div>
+
+      <div class="calib-status" id="calibStatus">
+        Hold the sign steady in front of the camera, then click Record Sample.
+      </div>
+    </div>
+
+    <p class="panel-footnote">
+      Done calibrating? <a href="{{ url_for('sign_to_speech_page') }}">Go try Sign → Speech →</a>
+    </p>
+  </section>
+</main>
+{% endblock %}
