@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Speech → Sign{% endblock %}
+
+{% block content %}
+<div class="hero hero-compact">
+  <h1>🎙️ Speech → <span class="hi">Sign</span></h1>
+  <p>Speak — SignBridge transcribes it, simplifies it, and shows it as sign language.</p>
+</div>
+
+<main class="panels panels-single">
+  <section class="panel">
+    <div class="panel-hdr">
+      <div class="panel-icon-box mic-icon-box">🎙️</div>
+      <div>
+        <h2>Speech Recognition</h2>
+        <p class="dir-sub">Hearing Person → Deaf/Mute User</p>
+      </div>
+      <div class="dir-tag dir2">Direction 2</div>
+    </div>
+
+    <!-- Mic visualiser -->
+    <div class="mic-wrap">
+      <div class="mic-ring" id="micRing">
+        <span class="mic-emoji">🎤</span>
+      </div>
+      <p class="mic-status" id="micStatus">Press Record to start</p>
+      <p class="mic-sub">Uses your browser's built-in speech recognition</p>
+    </div>
+
+    <!-- Controls -->
+    <div class="btn-row">
+      <button class="btn primary" id="startRecBtn" onclick="startRecording()" type="button">⏺ Record</button>
+      <button class="btn secondary" id="stopRecBtn" onclick="stopRecording()" disabled type="button">■ Stop</button>
+    </div>
+
+    <!-- Transcript -->
+    <div class="transcript-block">
+      <span class="block-label">Transcript</span>
+      <div class="transcript-text" id="transcriptText">Your speech appears here…</div>
+    </div>
+
+    <!-- Smart Display -->
+    <div class="smart-display" id="smartDisplay" style="display:none">
+      <div class="smart-inner" id="smartInner">—</div>
+      <div class="smart-footer">
+        <span class="smart-label">Smart Display for Deaf User</span>
+        <span class="alert-indicator" id="alertIndicator">●</span>
+      </div>
+    </div>
+
+    <!-- Animated / sign strip output — currently the emoji placeholder
+         from sign_vocabulary.py; swaps to sign-animation.js once
+         sign_animations.json is generated (see roadmap). -->
+    <div class="sign-sequence-strip" id="signSequenceStrip" style="display:none"></div>
+
+    <!-- Emergency card -->
+    <div class="emergency-card" id="emergencyCard" style="display:none">
+      <div class="emg-hdr">🚨 EMERGENCY MESSAGE</div>
+      <div class="emg-body" id="emergencyBody">—</div>
+    </div>
+
+    <!-- Translation -->
+    <div class="trans-row" id="speechTransRow" style="display:none">
+      <span class="res-label">Translation</span>
+      <div class="trans-text" id="speechTransText">—</div>
+    </div>
+
+    <!-- Knowledge Engine debug log -->
+    <div class="kb-log" id="knowledgeLogSpeech" style="display:none">
+      <div class="kb-log-title">🧠 Knowledge Engine Log</div>
+    </div>
+  </section>
+</main>
+{% endblock %}
