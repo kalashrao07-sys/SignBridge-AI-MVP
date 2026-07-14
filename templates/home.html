@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<div class="hero">
+  <h1>Where Gestures Become <span class="hi">Conversations</span></h1>
+  <p>Two-way AI communication bridge for Deaf &amp; Speech-Impaired communities</p>
+  <div class="pills">
+    <span>✋ Sign → Voice</span><span>🎙️ Speech → Text</span>
+    <span>🧠 Offline Knowledge Engine</span><span>🌐 3 Languages</span>
+    <span>🚨 Emergency Detection</span>
+  </div>
+</div>
+
+<main class="home-cards">
+  <a href="{{ url_for('sign_to_speech_page') }}" class="home-card">
+    <span class="home-card-icon">✋</span>
+    <h3>Sign → Speech</h3>
+    <p>Show a sign to the camera. SignBridge recognises it, corrects the grammar, and speaks it aloud.</p>
+    <span class="home-card-cta">Open →</span>
+  </a>
+
+  <a href="{{ url_for('speech_to_sign_page') }}" class="home-card">
+    <span class="home-card-icon">🎙️</span>
+    <h3>Speech → Sign</h3>
+    <p>Speak into the mic. SignBridge transcribes, simplifies, and displays it as sign language.</p>
+    <span class="home-card-cta">Open →</span>
+  </a>
+
+  <a href="{{ url_for('calibration_page') }}" class="home-card">
+    <span class="home-card-icon">🎯</span>
+    <h3>Calibrate</h3>
+    <p>Record a few samples of your own hand for each sign to make recognition reliable for you.</p>
+    <span class="home-card-cta">Open →</span>
+  </a>
+</main>
+{% endblock %}
