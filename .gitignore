@@ -4,8 +4,9 @@ venv/
 # Environment Variables
 .env
 
-#Dataset
-data/
+# Dataset staging (top-level only — does NOT match static/data/)
+/data/
+/asl_80/
 
 # Python
 __pycache__/
