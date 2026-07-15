@@ -31,7 +31,7 @@ import tensorflow as tf
 from sklearn.model_selection import train_test_split
 
 # ─── Config ────────────────────────────────────────────────────────────
-DATA_DIR = "./data"
+DATA_DIR = "./asl_80"
 SEQUENCE_LENGTH = 32          # frames per sample after resampling
 EPOCHS = 60
 BATCH_SIZE = 16
