@@ -20,3 +20,17 @@ __pycache__/
 .DS_Store
 Thumbs.db
 users.db
+
+# ML training cache
+sign_training_data.npz
+
+# Trained models
+*.h5
+*.keras
+
+# SavedModel
+sign_model_v3_savedmodel/
+
+# TensorFlow checkpoints
+checkpoint
+*.ckpt
