@@ -27,7 +27,7 @@ CACHE_PATH = "sign_training_data.npz"
 LABELS_PATH = "label_names.json"
 
 SEQUENCE_LENGTH = 32
-MAX_SAMPLES_PER_SIGN = 60
+MAX_SAMPLES_PER_SIGN = 150
 
 N_HAND = 21
 N_FEATURES = N_HAND * 2 * 2  # left+right hands, x+y each = 84
@@ -129,7 +129,8 @@ def main():
     label_to_idx = {name: i for i, name in enumerate(label_names)}
 
     for sign in label_names:
-        rows = train_csv[train_csv["sign"] == sign].head(MAX_SAMPLES_PER_SIGN)
+        available = train_csv[train_csv["sign"] == sign]
+        rows = available.head(MAX_SAMPLES_PER_SIGN)
         count = 0
         for _, row in rows.iterrows():
             seq = extract_sequence_fast(os.path.join(DATA_DIR, row["path"]))
@@ -138,7 +139,7 @@ def main():
             X.append(seq)
             y.append(label_to_idx[sign])
             count += 1
-        print(f"{sign}: {count} sequences")
+        print(f"{sign}: {count} used / {len(available)} available in dataset")
 
     X = np.stack(X)
     y = np.array(y)
