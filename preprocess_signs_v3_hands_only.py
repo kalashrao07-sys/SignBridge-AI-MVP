@@ -27,7 +27,7 @@ CACHE_PATH = "sign_training_data.npz"
 LABELS_PATH = "label_names.json"
 
 SEQUENCE_LENGTH = 32
-MAX_SAMPLES_PER_SIGN = 150
+MAX_SAMPLES_PER_SIGN = 500
 
 N_HAND = 21
 N_FEATURES = N_HAND * 2 * 2  # left+right hands, x+y each = 84
