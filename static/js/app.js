@@ -193,6 +193,8 @@ function onHandResults(results) {
   if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
     const landmarks = results.multiHandLandmarks[0];
 
+    pushSequenceFrame(results.multiHandLandmarks);
+
     drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS,
       { color: "#00B4D8", lineWidth: 2 });
     drawLandmarks(canvasCtx, landmarks,
@@ -515,6 +517,9 @@ async function processSpeechText(text) {
   }
 }
 
+document.addEventListener("DOMContentLoaded", () => {
+  if (typeof loadSequenceModel === "function") loadSequenceModel();
+});
 
 // ═══════════════════════════════════════════════════════════════════
 //  INIT
