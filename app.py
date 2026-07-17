@@ -19,7 +19,7 @@ from deep_translator import GoogleTranslator
 from dotenv import load_dotenv
 
 from knowledge_base import lookup_knowledge, knowledge_base_size
-from sign_vocabulary import text_to_sign_sequence, sign_vocabulary_size
+from sign_vocabulary import text_to_sign_sequence_detailed, sign_vocabulary_size
 from auth import auth_bp, init_auth
 
 load_dotenv()
@@ -249,7 +249,7 @@ def process_speech():
     if lang != "en":
         translated = translate_text(simplified, lang)
 
-    sign_sequence = text_to_sign_sequence(text)
+    sign_sequence, sign_unmatched = text_to_sign_sequence_detailed(text)
 
     return jsonify({
         "original":      text,
@@ -263,6 +263,7 @@ def process_speech():
         "kb_success":    insight.get("success", False),
         "method":        "knowledge_base" if insight.get("success") else "rules",
         "sign_sequence": sign_sequence,
+        "sign_unmatched": sign_unmatched,
         "lang":          lang,
     })
 
