@@ -102,7 +102,10 @@ async function _runInference(frames) {
   );
 
   const flat = normalized.map(frame => frame.flat()); // (32, 84)
+  console.log(flat[0].slice(0, 20));
   const probs = await window.SignSequenceModel.predict(seqModel, flat);
+  const best = _argmax(probs);
+  console.log("Prediction:", seqLabelNames[best], probs[best]);
 
   const top = _argmax(probs);
   const label = seqLabelNames[top];
