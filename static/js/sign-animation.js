@@ -4,8 +4,10 @@
  * skeleton, driven by real recorded landmark sequences (see
  * extract_sign_keyframes.py) — not fabricated poses, not emoji.
  *
- * Load sign_animations.json once at startup, then call
- * playSignSequence(containerId, ["help","water"]) whenever
+ * Stateful player (SignAnimationPlayer): play / pause / resume / replay /
+ * stop, so a played sequence can be revisited without re-running speech
+ * recognition. Load sign_animations.json once at startup, then call
+ * SignAnimationPlayer.play(containerId, ["help","water"]) whenever
  * /api/speech/process returns a sign_sequence.
  */
 
@@ -65,55 +67,182 @@ function offset(connections, by) {
 }
 
 /**
- * Play an animated skeleton for a sequence of words, one after another.
- * Words not found in SIGN_ANIMATIONS are skipped with a console warning
- * (rather than silently failing) so gaps in your vocabulary are visible
- * during testing.
+ * Stateful sign-sequence player. States: "idle" (nothing loaded),
+ * "playing", "paused", "finished" (reached the end), "empty" (none of
+ * the given words had an animation).
+ *
+ * The canvas/label are created once per container and reused across
+ * play() calls, so state persists correctly across Play/Pause/Replay.
  */
-async function playSignSequence(containerId, words, fps = 14) {
-  if (!SIGN_ANIMATIONS) await loadSignAnimations();
+const SignAnimationPlayer = (() => {
+  let container = null, canvas = null, ctx = null, label = null, statusEl = null;
+  let words = [];       // filtered to only words that have an animation
+  let skipped = [];     // words from the last play() call with no animation
+  let wordIdx = 0;
+  let frameIdx = 0;
+  let timer = null;
+  let state = "idle";
+  const FPS = 14;
+  const INTER_WORD_PAUSE_MS = 200;
 
-  const container = document.getElementById(containerId);
-  container.innerHTML = "";
-  const canvas = document.createElement("canvas");
-  canvas.width = 320;
-  canvas.height = 320;
-  canvas.className = "sign-anim-canvas";
-  container.appendChild(canvas);
-  const ctx = canvas.getContext("2d");
-
-  const label = document.createElement("div");
-  label.className = "sign-anim-label";
-  container.appendChild(label);
-
-  for (const word of words) {
-    const key = word.toLowerCase();
-    const frames = SIGN_ANIMATIONS[key];
-    if (!frames) {
-      console.warn(`No animation for "${word}" — not in trained vocabulary`);
-      continue;
+  function _ensureUI(containerId) {
+    const el = document.getElementById(containerId);
+    if (!el) return false;
+    if (container !== el) {
+      container = el;
+      container.innerHTML = "";
+      canvas = document.createElement("canvas");
+      canvas.width = 320;
+      canvas.height = 320;
+      canvas.className = "sign-anim-canvas";
+      ctx = canvas.getContext("2d");
+      label = document.createElement("div");
+      label.className = "sign-anim-label";
+      statusEl = document.createElement("div");
+      statusEl.className = "sign-anim-status";
+      container.appendChild(canvas);
+      container.appendChild(label);
+      container.appendChild(statusEl);
     }
-    label.textContent = word.toUpperCase();
-    await _playFrames(ctx, frames, canvas.width, canvas.height, fps);
-    await _sleep(200); // brief pause between words
+    return true;
   }
+
+  function _setStatus(text) {
+    if (statusEl) statusEl.textContent = text;
+  }
+
+  function _tick() {
+    if (state !== "playing") return;
+    const frames = SIGN_ANIMATIONS[words[wordIdx]];
+    _drawFrame(ctx, frames[frameIdx], canvas.width, canvas.height);
+    label.textContent = words[wordIdx].toUpperCase();
+    frameIdx++;
+    if (frameIdx >= frames.length) {
+      timer = setTimeout(_advanceWord, INTER_WORD_PAUSE_MS);
+    } else {
+      timer = setTimeout(_tick, 1000 / FPS);
+    }
+  }
+
+  function _advanceWord() {
+    wordIdx++;
+    frameIdx = 0;
+    if (wordIdx >= words.length) {
+      state = "finished";
+      _setStatus("Finished — press Replay to watch again");
+      _updateButtons();
+      return;
+    }
+    _tick();
+  }
+
+  /**
+   * @param {string} containerId
+   * @param {string[]} newWords - words to sign, in order (unmatched
+   *        words are filtered out here; the caller doesn't need to
+   *        pre-filter against sign_animations.json)
+   */
+  async function play(containerId, newWords) {
+    if (!SIGN_ANIMATIONS) await loadSignAnimations();
+    if (!_ensureUI(containerId)) return;
+
+    clearTimeout(timer);
+    const requested = (newWords || []).map(w => w.toLowerCase());
+    words   = requested.filter(w => SIGN_ANIMATIONS[w]);
+    skipped = requested.filter(w => !SIGN_ANIMATIONS[w]);
+    wordIdx = 0;
+    frameIdx = 0;
+
+    if (words.length === 0) {
+      state = "empty";
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      label.textContent = "";
+      _setStatus(
+        requested.length === 0
+          ? "No signs to display."
+          : `No sign animation available for: ${requested.join(", ")} (not in current 80-word vocabulary)`
+      );
+      _updateButtons();
+      return;
+    }
+
+    state = "playing";
+    _setStatus(
+      skipped.length > 0
+        ? `Playing ${words.length} of ${requested.length} words — no animation for: ${skipped.join(", ")}`
+        : `Playing ${words.length} word${words.length > 1 ? "s" : ""}…`
+    );
+    _updateButtons();
+    _tick();
+  }
+
+  function pause() {
+    if (state !== "playing") return;
+    clearTimeout(timer);
+    state = "paused";
+    _setStatus("Paused");
+    _updateButtons();
+  }
+
+  function resume() {
+    if (state !== "paused") return;
+    state = "playing";
+    _setStatus(`Playing ${words.length} word${words.length > 1 ? "s" : ""}…`);
+    _updateButtons();
+    _tick();
+  }
+
+  function replay() {
+    if (words.length === 0) return;
+    clearTimeout(timer);
+    wordIdx = 0;
+    frameIdx = 0;
+    state = "playing";
+    _setStatus(`Replaying ${words.length} word${words.length > 1 ? "s" : ""}…`);
+    _updateButtons();
+    _tick();
+  }
+
+  function stop() {
+    clearTimeout(timer);
+    wordIdx = 0;
+    frameIdx = 0;
+    state = "idle";
+    if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (label) label.textContent = "";
+    _setStatus("Stopped");
+    _updateButtons();
+  }
+
+  /** Single button-friendly entry point: resumes if paused, else (re)plays from the start. */
+  function playOrResume() {
+    if (state === "paused") resume();
+    else if (state === "finished" || state === "idle") replay();
+  }
+
+  function _updateButtons() {
+    const playBtn  = document.getElementById("signPlayBtn");
+    const pauseBtn = document.getElementById("signPauseBtn");
+    const stopBtn  = document.getElementById("signStopBtn");
+    if (!playBtn || !pauseBtn || !stopBtn) return; // controls not present on this page
+
+    const hasWords = words.length > 0;
+    playBtn.disabled  = !hasWords || state === "playing";
+    playBtn.textContent =
+      state === "paused" ? "▶️ Resume" : state === "finished" ? "🔁 Replay" : "▶️ Play";
+    pauseBtn.disabled = state !== "playing";
+    stopBtn.disabled  = !hasWords || state === "idle";
+  }
+
+  return { play, pause, resume, replay, stop, playOrResume };
+})();
+
+// Backward-compatible one-shot wrapper (used by anything not yet updated
+// to the stateful API).
+function playSignSequence(containerId, words) {
+  return SignAnimationPlayer.play(containerId, words);
 }
 
-function _playFrames(ctx, frames, w, h, fps) {
-  return new Promise(resolve => {
-    let i = 0;
-    const interval = setInterval(() => {
-      _drawFrame(ctx, frames[i], w, h);
-      i++;
-      if (i >= frames.length) {
-        clearInterval(interval);
-        resolve();
-      }
-    }, 1000 / fps);
-  });
-}
-
-function _sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-window.loadSignAnimations = loadSignAnimations;
-window.playSignSequence = playSignSequence;
+window.loadSignAnimations   = loadSignAnimations;
+window.playSignSequence     = playSignSequence;
+window.SignAnimationPlayer  = SignAnimationPlayer;
