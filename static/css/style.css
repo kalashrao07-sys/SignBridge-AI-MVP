@@ -1029,6 +1029,17 @@ a { color: inherit; }
   font-size: 0.95rem;
 }
 
+.sign-anim-status {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  text-align: center;
+  min-height: 1.1em;
+}
+
+.sign-anim-controls {
+  margin-top: -0.2rem; /* sits close under the strip rather than floating */
+}
+
 /* legacy emoji-chip classes — unused now but harmless if still referenced anywhere */
 .sign-chip {
   display: flex;
