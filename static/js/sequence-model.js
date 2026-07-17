@@ -23,7 +23,7 @@ let seqLastWord = null;
 let seqLastWordTime = 0;
 
 async function loadSequenceModel() {
-  seqModel = await tf.loadLayersModel("/static/model/model.json");
+  seqModel = await window.SignSequenceModel.load("/static/model");
   seqLabelNames = await (await fetch("/static/model/label_names.json")).json();
   const reliable = await (await fetch("/static/model/reliable_signs_v3.json")).json();
   seqReliableSet = new Set(reliable);
@@ -70,7 +70,7 @@ function _extractHandPoints(multiHandLandmarks) {
   return pts;
 }
 
-function _runInference(frames) {
+async function _runInference(frames) {
   // Build (32, 42, 2) array, treating missing hands as NaN for now
   const raw = frames.map(f => f || new Array(42).fill([NaN, NaN]));
 
@@ -102,12 +102,7 @@ function _runInference(frames) {
   );
 
   const flat = normalized.map(frame => frame.flat()); // (32, 84)
-  const inputTensor = tf.tensor([flat]); // (1, 32, 84)
-
-  const output = seqModel.predict(inputTensor);
-  const probs = output.dataSync();
-  inputTensor.dispose();
-  output.dispose();
+  const probs = await window.SignSequenceModel.predict(seqModel, flat);
 
   const top = _argmax(probs);
   const label = seqLabelNames[top];
