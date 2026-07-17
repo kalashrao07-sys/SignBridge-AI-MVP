@@ -48,10 +48,13 @@
       </div>
     </div>
 
-    <!-- Animated / sign strip output — currently the emoji placeholder
-         from sign_vocabulary.py; swaps to sign-animation.js once
-         sign_animations.json is generated (see roadmap). -->
+    <!-- Animated sign strip output, driven by sign-animation.js -->
     <div class="sign-sequence-strip" id="signSequenceStrip" style="display:none"></div>
+    <div class="btn-row sign-anim-controls">
+      <button class="btn primary" id="signPlayBtn" onclick="SignAnimationPlayer.playOrResume()" type="button" disabled>▶️ Play</button>
+      <button class="btn secondary" id="signPauseBtn" onclick="SignAnimationPlayer.pause()" type="button" disabled>⏸️ Pause</button>
+      <button class="btn ghost" id="signStopBtn" onclick="SignAnimationPlayer.stop()" type="button" disabled>⏹️ Stop</button>
+    </div>
 
     <!-- Emergency card -->
     <div class="emergency-card" id="emergencyCard" style="display:none">
