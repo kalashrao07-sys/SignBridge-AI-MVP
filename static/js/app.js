@@ -125,28 +125,22 @@ function showKnowledgeLog(panel, input, topic, response, method, output) {
 // ═══════════════════════════════════════════════════════════════════
 
 /**
- * Render the ordered list of matched signs returned by the backend as a
- * strip of emoji chips under the Smart Display. Words with no known sign
- * are simply absent from `sequence` — the Smart Display text still shows
- * the full sentence.
+ * Kick off playback of the ordered list of matched signs returned by the
+ * backend (sign_vocabulary.py's text_to_sign_sequence — a plain array of
+ * lowercase words, e.g. ["hello","food"]). SignAnimationPlayer filters
+ * out any words with no animation and surfaces that in its own status
+ * line, so the strip stays visible (rather than disappearing) even when
+ * nothing in the sentence is in the current 80-word vocabulary — that
+ * makes a vocabulary gap look like a vocabulary gap, not a bug.
  */
 function renderSignSequence(sequence) {
   const wrap = $("signSequenceStrip");
   if (!wrap) return;
 
-  if (!sequence || sequence.length === 0) {
-    wrap.style.display = "none";
-    wrap.innerHTML = "";
-    return;
-  }
-
   wrap.style.display = "flex";
-  wrap.innerHTML = sequence.map(item => `
-    <div class="sign-chip" title="${escapeHtml(item.desc || item.sign)}">
-      <span class="sign-chip-emoji">${item.emoji || "❓"}</span>
-      <span class="sign-chip-word">${escapeHtml(item.sign)}</span>
-    </div>
-  `).join("");
+  SignAnimationPlayer.play("signSequenceStrip", sequence || []).catch(err =>
+    console.error("Sign animation playback failed:", err)
+  );
 }
 
 
@@ -474,7 +468,8 @@ async function processSpeechText(text) {
     if (!res.ok || data.error) {
       setStatus("❌ " + (data.error || "Request failed"), "error");
       showKnowledgeLog("speech", text, "—", data.error || "Request failed", "rules", "—");
-      renderSignSequence([]);
+      SignAnimationPlayer.stop();
+      $("signSequenceStrip").style.display = "none";
       return;
     }
 
