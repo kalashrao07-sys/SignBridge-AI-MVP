@@ -16,7 +16,7 @@ file to match.
 from __future__ import annotations
 
 import re
-from typing import List
+from typing import List, Optional
 
 # The 80 words actually present in sign_animations.json.
 VOCABULARY = {
@@ -44,23 +44,65 @@ SYNONYMS = {
 
 _WORD_RE = re.compile(r"[a-zA-Z']+")
 
+# Very small, deliberately conservative suffix-stripping so simple
+# grammatical variants (plurals, -ing/-ed forms) still match a base word
+# that IS in the vocabulary — e.g. "cats" -> "cat", "looking" -> "look".
+# This is NOT semantic matching: it never maps one concept to a different
+# one. A word like "doctor" or "headache" has no animation and correctly
+# stays unmatched — there's no honest way to stem or synonym our way to
+# a sign that was never recorded. Closing that gap means adding more
+# words to sign_animations.json (see roadmap: WLASL / INCLUDE / AI4Bharat),
+# not cleverer text matching here.
+_SUFFIXES = ["ing", "ed", "es", "s"]
+
+
+def _stem_candidates(word: str) -> List[str]:
+    candidates = [word]
+    for suffix in _SUFFIXES:
+        if word.endswith(suffix) and len(word) - len(suffix) >= 3:
+            candidates.append(word[: -len(suffix)])
+    return candidates
+
+
+def _resolve(word: str) -> Optional[str]:
+    for candidate in _stem_candidates(word):
+        if candidate in VOCABULARY:
+            return candidate
+        if candidate in SYNONYMS:
+            return SYNONYMS[candidate]
+    return None
+
 
 def text_to_sign_sequence(text: str) -> List[str]:
     """
     Tokenize `text` and return an ordered list of words that have a
-    real animated sign. Words with no match are skipped (the full
-    text still reaches the user via the existing Smart Display).
+    real animated sign. Words with no match (including no match after
+    simple stemming) are skipped — the full text still reaches the user
+    via the existing Smart Display. Use text_to_sign_sequence_detailed()
+    if you also need to know which words were skipped.
+    """
+    return text_to_sign_sequence_detailed(text)[0]
+
+
+def text_to_sign_sequence_detailed(text: str) -> "tuple[List[str], List[str]]":
+    """
+    Same as text_to_sign_sequence(), but also returns the list of
+    tokens that had no animation available, in case a caller wants to
+    surface that (e.g. "no sign for: doctor, headache") rather than
+    silently dropping them.
     """
     if not text:
-        return []
+        return [], []
 
     tokens = _WORD_RE.findall(text.lower())
-    sequence = []
+    matched, unmatched = [], []
     for word in tokens:
-        canonical = word if word in VOCABULARY else SYNONYMS.get(word)
+        canonical = _resolve(word)
         if canonical:
-            sequence.append(canonical)
-    return sequence
+            matched.append(canonical)
+        else:
+            unmatched.append(word)
+    return matched, unmatched
 
 
 def sign_vocabulary_size() -> int:
