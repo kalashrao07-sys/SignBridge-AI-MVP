@@ -14,8 +14,6 @@ let canvasCtx     = null;
 let classifier    = new GestureClassifier();
 window.classifier = classifier;
 let lastAudio     = null;
-let mediaRec      = null;
-let audioChunks   = [];
 let cameraActive  = false;
 let kbQueryCount  = 0;   // tracks successful Knowledge Engine matches this session
 
@@ -175,7 +173,30 @@ function initMediaPipe() {
     onFrame: async () => { await hands.send({ image: videoEl }); },
     width:  size.width,
     height: size.height,
+    // Prefer the rear/environment camera on mobile — "ideal" (not
+    // "exact") so devices without a back camera (most laptops) still
+    // fall back to whatever camera IS available instead of failing.
+    facingMode: { ideal: "environment" },
   });
+}
+
+/**
+ * Starts the camera, retrying with the front-facing camera if the
+ * rear/environment camera isn't available on this device (e.g. laptops).
+ */
+async function _startCameraWithFallback() {
+  try {
+    await camera.start();
+  } catch (e) {
+    console.warn("Rear camera unavailable, falling back to front camera:", e.message);
+    camera = new Camera($("signVideo"), {
+      onFrame: async () => { await hands.send({ image: $("signVideo") }); },
+      width:  getOptimalCanvasSize().width,
+      height: getOptimalCanvasSize().height,
+      facingMode: "user",
+    });
+    await camera.start();
+  }
 }
 
 function onHandResults(results) {
@@ -255,7 +276,7 @@ async function startCamera() {
   setStatus("Starting camera…");
   try {
     initMediaPipe();
-    await camera.start();
+    await _startCameraWithFallback();
     cameraActive = true;
 
     $("signVideo").style.display  = "none";
@@ -383,37 +404,28 @@ function playAudio() {
 // ═══════════════════════════════════════════════════════════════════
 
 async function startRecording() {
+  // NOTE: previously this also opened a second, separate microphone
+  // stream via getUserMedia + MediaRecorder, whose captured audio
+  // (audioChunks) was never actually used anywhere. Having two
+  // concurrent exclusive-access audio captures open at once — this one
+  // plus SpeechRecognition's own internal capture below — is a known
+  // source of "recognition starts but never receives audio" on Android
+  // Chrome specifically (desktop Chrome tolerates it via software
+  // mixing; Android's audio session handling is stricter). Removed.
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRec     = new MediaRecorder(stream);
-    audioChunks  = [];
-
-    mediaRec.ondataavailable = e => audioChunks.push(e.data);
-    mediaRec.onstop = () => {
-      stream.getTracks().forEach(t => t.stop());
-      $("startRecBtn").disabled  = false;
-      $("stopRecBtn").disabled   = true;
-      $("micRing").classList.remove("recording");
-      $("micStatus").textContent = "Processing…";
-    };
-
-    mediaRec.start();
     startWebSpeech();
-
-    $("startRecBtn").disabled  = true;
-    $("stopRecBtn").disabled   = false;
-    $("micRing").classList.add("recording");
-    $("micStatus").textContent = "Listening…";
-    setStatus("🎙️ Recording…");
-
   } catch (e) {
     setStatus("❌ Mic error: " + e.message, "error");
   }
 }
 
 function stopRecording() {
-  if (mediaRec && mediaRec.state !== "inactive") mediaRec.stop();
   if (window._speechRec) window._speechRec.stop();
+  _resetRecordingUI();
+}
+
+function _resetRecordingUI() {
+  clearTimeout(window._speechSafetyTimer);
   $("startRecBtn").disabled  = false;
   $("stopRecBtn").disabled   = true;
   $("micRing").classList.remove("recording");
@@ -427,13 +439,36 @@ function startWebSpeech() {
     return;
   }
 
+  // Guard against a stray double-tap starting a second recognizer while
+  // one is already active.
+  if (window._speechRec) {
+    try { window._speechRec.abort(); } catch (_) { /* already stopped */ }
+  }
+
   const rec          = new SR();
   rec.lang           = LANG_BCP47[getLang()] || "en-IN";
   rec.continuous     = false;
   rec.interimResults = true;
   window._speechRec  = rec;
 
+  let gotFinalResult = false;
+
+  // Full lifecycle logging, as requested — this is the actual diagnostic
+  // signal we need: whichever of these DOESN'T fire on the Android
+  // device tells us exactly where the pipeline is dying (e.g. onstart
+  // firing but onaudiostart never firing would point at mic capture
+  // itself, not at SpeechRecognition's language-processing step).
+  rec.onstart      = () => console.log("[SpeechRecognition] onstart");
+  rec.onaudiostart = () => console.log("[SpeechRecognition] onaudiostart");
+  rec.onsoundstart = () => console.log("[SpeechRecognition] onsoundstart");
+  rec.onspeechstart = () => console.log("[SpeechRecognition] onspeechstart");
+  rec.onspeechend  = () => console.log("[SpeechRecognition] onspeechend");
+  rec.onsoundend   = () => console.log("[SpeechRecognition] onsoundend");
+  rec.onaudioend   = () => console.log("[SpeechRecognition] onaudioend");
+  rec.onnomatch    = () => console.log("[SpeechRecognition] onnomatch — audio captured but not recognized as speech");
+
   rec.onresult = async (e) => {
+    console.log("[SpeechRecognition] onresult", e.results);
     let final = "", interim = "";
     for (const r of e.results) {
       r.isFinal ? (final += r[0].transcript) : (interim += r[0].transcript);
@@ -443,13 +478,52 @@ function startWebSpeech() {
     $("transcriptText").className   = "transcript-text has-text";
 
     if (final) {
+      gotFinalResult = true;
       await processSpeechText(final.trim());
       stopRecording();
     }
   };
 
-  rec.onerror = e => setStatus("Speech error: " + e.error, "error");
+  rec.onerror = e => {
+    console.log("[SpeechRecognition] onerror", e.error);
+    setStatus("Speech error: " + e.error, "error");
+    _resetRecordingUI();
+  };
+
+  // Critical fix: without this, if recognition ends for ANY reason
+  // without producing a final result (common on Android Chrome — e.g.
+  // it silently gives up if it never actually captured usable audio),
+  // the UI was permanently stuck on "Listening…" with no way out except
+  // manually pressing Stop. Android Chrome sometimes reports overall
+  // success (no onerror) while genuinely capturing nothing, which is
+  // exactly the "stuck on Listening..." symptom — this always resets
+  // the UI when the recognizer stops, regardless of why.
+  rec.onend = () => {
+    console.log("[SpeechRecognition] onend — gotFinalResult:", gotFinalResult);
+    if (!gotFinalResult) {
+      setStatus("🎙️ No speech detected — try again", "error");
+    }
+    _resetRecordingUI();
+  };
+
+  // Second line of defense: if nothing at all has happened within 10s
+  // (not even onspeechstart), force-stop rather than leaving the user
+  // staring at "Listening…" indefinitely.
+  clearTimeout(window._speechSafetyTimer);
+  window._speechSafetyTimer = setTimeout(() => {
+    if (window._speechRec === rec && !gotFinalResult) {
+      console.log("[SpeechRecognition] safety timeout — forcing stop");
+      rec.stop();
+    }
+  }, 10000);
+
   rec.start();
+
+  $("startRecBtn").disabled  = true;
+  $("stopRecBtn").disabled   = false;
+  $("micRing").classList.add("recording");
+  $("micStatus").textContent = "Listening…";
+  setStatus("🎙️ Recording…");
 }
 
 async function processSpeechText(text) {
