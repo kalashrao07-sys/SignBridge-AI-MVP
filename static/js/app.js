@@ -169,7 +169,7 @@ function initMediaPipe() {
   });
 
   hands.setOptions({
-    maxNumHands:            1,
+    maxNumHands:            2,
     modelComplexity:        isMobile() ? 0 : 1,
     minDetectionConfidence: 0.7,
     minTrackingConfidence:  0.6,
@@ -191,16 +191,27 @@ function onHandResults(results) {
   canvasCtx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
 
   if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-    const landmarks = results.multiHandLandmarks[0];
 
     pushSequenceFrame(results.multiHandLandmarks);
 
-    drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS,
-      { color: "#00B4D8", lineWidth: 2 });
-    drawLandmarks(canvasCtx, landmarks,
-      { color: "#FFFFFF", fillColor: "#00B4D8", lineWidth: 1, radius: 4 });
+    // Draw every detected hand
+    for (const landmarks of results.multiHandLandmarks) {
+        drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {
+            color: "#00B4D8",
+            lineWidth: 2
+        });
 
-    const result = classifier.classify(landmarks);
+        drawLandmarks(canvasCtx, landmarks, {
+            color: "#FFFFFF",
+            fillColor: "#00B4D8",
+            lineWidth: 1,
+            radius: 4
+        });
+    }
+
+    // Pass ALL hands to the classifier
+    const result = classifier.classify(results.multiHandLandmarks);
+
     updateDetectionUI(result);
 
     const phrase = classifier.push(result);
