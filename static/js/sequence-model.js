@@ -1,14 +1,17 @@
 /**
- * SignBridge AI — Sequence Model (browser-side)
+ * SignBridge AI — Sequence Model (browser-side, DEBUG-ONLY)
  * Runs the trained GRU model on a rolling window of hand landmarks,
  * using the SAME feature extraction as preprocess_signs_v3_hands_only.py:
  *   - hands only (no pose) — 21 left + 21 right = 42 points, x&y = 84 features
  *   - sequence-level (not per-frame) center/scale normalization
  *   - resampled to 32 frames
  *
- * Runs alongside gesture.js's per-frame classifier, not instead of it —
- * this catches the 64-word trained vocabulary, gesture.js's
- * bitmask/calibration system still catches the emergency word set.
+ * Runs alongside gesture.js's per-frame classifier — but does NOT drive
+ * any user-facing output. gesture.js is the sole owner of: detected-sign
+ * display, the phrase buffer, phrase completion, the Knowledge Engine
+ * call, final text, and TTS. This module's only observable effect is
+ * console.log output, so the DL model can keep being monitored and
+ * improved without ever affecting what the demo shows or speaks.
  */
 
 const SEQ_WINDOW = 32;
@@ -33,8 +36,8 @@ async function loadSequenceModel() {
 /**
  * Call once per frame with the raw MediaPipe landmarks (or null if no
  * hand detected this frame). Internally buffers a rolling window and
- * runs inference periodically. Returns nothing directly — pushes
- * recognized words straight into the sign buffer via addSequenceWord().
+ * runs inference periodically. Returns nothing and touches no UI state —
+ * predictions are only ever written to the console (see _runInference).
  */
 function pushSequenceFrame(multiHandLandmarks) {
   if (!seqModel) return;
@@ -102,19 +105,32 @@ async function _runInference(frames) {
   );
 
   const flat = normalized.map(frame => frame.flat()); // (32, 84)
-  console.log(flat[0].slice(0, 20));
   const probs = await window.SignSequenceModel.predict(seqModel, flat);
-  const best = _argmax(probs);
-  console.log("Prediction:", seqLabelNames[best], probs[best]);
-
   const top = _argmax(probs);
   const label = seqLabelNames[top];
   const confidence = probs[top];
 
-  if (confidence < SEQ_MIN_CONF) return;
-  if (!seqReliableSet.has(label)) return; // only surface words we validated as reliable
+  // Debug-only: log predictions, throttled so the console stays readable
+  // (this throttle affects console output ONLY — it has no bearing on
+  // anything user-facing, unlike the old cooldown which used to gate a
+  // buffer write).
+  if (confidence >= SEQ_MIN_CONF) {
+    const now = Date.now();
+    const changed = label !== seqLastWord;
 
-  addSequenceWord(label);
+    if (changed || now - seqLastWordTime >= SEQ_COOLDOWN_MS) {
+        const reliableTag = seqReliableSet.has(label)
+            ? "reliable"
+            : "unreliable";
+
+        console.log(
+            `[DL model][debug] ${label} (${(confidence * 100).toFixed(1)}%) ${reliableTag}`
+        );
+
+        seqLastWord = label;
+        seqLastWordTime = now;
+    }
+  }
 }
 
 function _dist(a, b) {
@@ -151,27 +167,6 @@ function _argmax(arr) {
   let best = 0;
   for (let i = 1; i < arr.length; i++) if (arr[i] > arr[best]) best = i;
   return best;
-}
-
-/** Pushes a recognized word into the same sign buffer the calibrated
- * classifier uses, with a cooldown so holding a sign doesn't spam it. */
-function addSequenceWord(word) {
-  const now = Date.now();
-  if (word === seqLastWord && now - seqLastWordTime < SEQ_COOLDOWN_MS) return;
-  seqLastWord = word;
-  seqLastWordTime = now;
-
-  if (window.classifier && Array.isArray(window.classifier.signBuffer)) {
-    window.classifier.signBuffer.push(word.toUpperCase());
-  }
-
-  const chips = document.getElementById("bufferChips");
-  if (chips) {
-    const chip = document.createElement("span");
-    chip.className = "chip";
-    chip.textContent = word.toUpperCase();
-    chips.appendChild(chip);
-  }
 }
 
 window.loadSequenceModel = loadSequenceModel;
