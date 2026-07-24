@@ -2,8 +2,15 @@
 SignBridge AI — Knowledge Engine
 =================================
 Self-contained factual/medical knowledge layer. No API key, no network
-call, no rate limit. Runs fully offline. Unchanged from the original —
-included here only so this patch folder is a complete drop-in set.
+call, no rate limit. Runs fully offline.
+
+IMPORTANT (production note): this content is compiled from general
+public-health and first-aid guidance for demonstration purposes. Before
+any real deployment (hospitals, schools, public use), have a licensed
+medical professional review and sign off on every entry in
+KNOWLEDGE_BASE below. Treat this file as a single source of truth a
+doctor can audit line-by-line — that's the point of owning it instead
+of calling a black-box API.
 """
 
 import re
@@ -208,24 +215,225 @@ KNOWLEDGE_BASE = [
                      "feature.",
         "category": "info",
     },
+
+    # ── Added to cover gesture.js's expanded 60-word sign vocabulary
+    #    (previously only ~half of it had a matching entry here) ──
+    {
+        "keywords": ["sick", "illness", "unwell"],
+        "topic": "Feeling Sick",
+        "response": "Feeling generally sick or unwell can have many causes, from minor "
+                     "infections to something more serious. Note any other symptoms "
+                     "(fever, pain, breathing difficulty) and seek medical advice if it "
+                     "does not improve within a day or two, or worsens quickly.",
+        "category": "medical",
+    },
+    {
+        "keywords": ["medicine", "medication", "prescription"],
+        "topic": "Medicine",
+        "response": "Always take medicine exactly as prescribed or as directed on the "
+                     "label. If you are unsure about a dose, an interaction with another "
+                     "medicine, or a possible allergic reaction, check with a pharmacist "
+                     "or doctor before taking it.",
+        "category": "medical",
+    },
+    {
+        "keywords": ["nurse"],
+        "topic": "Nurses",
+        "response": "Nurses provide direct patient care, monitor symptoms, administer "
+                     "medication, and are often the first point of contact in a hospital "
+                     "or clinic — you can flag a nurse for most immediate, non-emergency "
+                     "needs.",
+        "category": "medical",
+    },
+    {
+        "keywords": ["allerg"],
+        "topic": "Allergic Reaction",
+        "response": "Mild allergic reactions (sneezing, itching, mild rash) can often be "
+                     "managed with antihistamines. A severe reaction — swelling of the "
+                     "face or throat, difficulty breathing, or dizziness — is a medical "
+                     "emergency; seek help immediately.",
+        "category": "emergency",
+    },
+    {
+        "keywords": ["temperature"],
+        "topic": "Body Temperature",
+        "response": "A normal body temperature is roughly 36.5\u201337.5\u00B0C (97.7\u201399.5\u00B0F). "
+                     "A reading above that range suggests fever; a reading noticeably "
+                     "below it can also signal a problem. Either extreme, especially "
+                     "with other symptoms, is worth medical attention.",
+        "category": "medical",
+    },
+    {
+        "keywords": ["bandage", "dressing", "wound care"],
+        "topic": "Bandaging a Wound",
+        "response": "Clean a wound gently before covering it, use a sterile bandage or "
+                     "dressing, and change it if it becomes wet or dirty. Seek medical "
+                     "care for deep cuts, wounds that won't stop bleeding, or signs of "
+                     "infection (increasing redness, warmth, swelling, or pus).",
+        "category": "medical",
+    },
+    {
+        "keywords": ["blood pressure", "hypertension", "pressure"],
+        "topic": "Blood Pressure",
+        "response": "Normal blood pressure is roughly 90/60 to 120/80 mmHg. Consistently "
+                     "high readings (hypertension) often have no symptoms but raise the "
+                     "risk of heart disease and stroke over time, so regular checks and "
+                     "medical follow-up matter even without feeling unwell.",
+        "category": "medical",
+    },
+    {
+        "keywords": ["better", "improving", "recover"],
+        "topic": "Feeling Better",
+        "response": "Improvement is a good sign, but it's still worth finishing any "
+                     "prescribed medication course and watching for symptoms returning "
+                     "or worsening again before considering the issue fully resolved.",
+        "category": "health",
+    },
+    {
+        "keywords": ["worse", "worsening", "deteriorat"],
+        "topic": "Symptoms Worsening",
+        "response": "Symptoms getting worse, rather than improving with rest and time, "
+                     "is a signal to seek medical attention rather than wait — this is "
+                     "especially true for pain, breathing difficulty, or fever.",
+        "category": "health",
+    },
+    {
+        "keywords": ["home"],
+        "topic": "Home",
+        "response": "Being able to communicate a need to go home, or that you feel safer "
+                     "at home, is an important part of care coordination for someone "
+                     "who is deaf or speech-impaired.",
+        "category": "info",
+    },
+    {
+        "keywords": ["school"],
+        "topic": "School",
+        "response": "Inclusive education for deaf and hard-of-hearing students works "
+                     "best with sign language support, captioning, or an interpreter "
+                     "available for classroom communication.",
+        "category": "info",
+    },
+    {
+        "keywords": ["famil"],
+        "topic": "Family",
+        "response": "Involving family in communication and care decisions, where the "
+                     "person wants that, helps ensure continuity of support beyond a "
+                     "single hospital visit or appointment.",
+        "category": "info",
+    },
+    {
+        "keywords": ["friend"],
+        "topic": "Friends",
+        "response": "Having a trusted friend present, or reachable, can help someone "
+                     "communicate more confidently in a medical or public-service "
+                     "setting.",
+        "category": "info",
+    },
+    {
+        "keywords": ["mother", "mom"],
+        "topic": "Mother / Family Contact",
+        "response": "Identifying a parent or guardian as a point of contact is often "
+                     "important in medical settings, especially for minors or when "
+                     "someone wants a family member involved in decisions.",
+        "category": "info",
+    },
+    {
+        "keywords": ["father", "dad"],
+        "topic": "Father / Family Contact",
+        "response": "Identifying a parent or guardian as a point of contact is often "
+                     "important in medical settings, especially for minors or when "
+                     "someone wants a family member involved in decisions.",
+        "category": "info",
+    },
+    {
+        "keywords": ["child"],
+        "topic": "Child",
+        "response": "When the person needing help is a child, communication should "
+                     "involve a parent or guardian wherever possible, and language/tone "
+                     "should be kept age-appropriate.",
+        "category": "info",
+    },
+    {
+        "keywords": ["angry", "anger"],
+        "topic": "Feeling Angry",
+        "response": "Frustration or anger is a valid response to communication "
+                     "barriers or pain. Naming the emotion clearly can help the person "
+                     "assisting you understand the urgency or nature of the situation.",
+        "category": "info",
+    },
+    {
+        "keywords": ["happy"],
+        "topic": "Feeling Happy",
+        "response": "Being able to express positive emotions, not just needs and "
+                     "symptoms, is part of full communication access.",
+        "category": "info",
+    },
+    {
+        "keywords": ["sad"],
+        "topic": "Feeling Sad",
+        "response": "Persistent sadness is worth mentioning to a trusted person or "
+                     "professional, particularly if it lasts more than a couple of "
+                     "weeks or comes with changes in sleep, appetite, or energy.",
+        "category": "info",
+    },
+    {
+        "keywords": ["scared", "afraid", "fear"],
+        "topic": "Feeling Scared",
+        "response": "Fear is a common, valid response in medical or emergency "
+                     "situations. Clearly communicating that you're scared can help "
+                     "whoever is assisting you adjust their approach and pace.",
+        "category": "info",
+    },
+    {
+        "keywords": ["confused", "confusion"],
+        "topic": "Feeling Confused",
+        "response": "If you don't understand something being explained to you, saying "
+                     "so clearly is important — especially for medical instructions, "
+                     "where a misunderstanding can matter. It's always fine to ask for "
+                     "something to be repeated or simplified.",
+        "category": "info",
+    },
+    {
+        "keywords": ["love"],
+        "topic": "Expressing Care",
+        "response": "Being able to express affection and care for family or friends is "
+                     "part of full communication access, not just conveying needs.",
+        "category": "info",
+    },
 ]
 
 
 def lookup_knowledge(phrase: str) -> dict:
+    """
+    Search the local knowledge base for a matching topic in the given
+    phrase. Matches on the MOST SPECIFIC (longest) matching keyword
+    across all entries — not simply the first entry in list order —
+    so a specific multi-word keyword (e.g. "blood pressure") always
+    wins over a shorter, more general one from a different entry (e.g.
+    "blood", from the Bleeding entry) that happens to appear earlier
+    in KNOWLEDGE_BASE. Ties (equal-length matches) fall back to list
+    order, so entry order still matters as a tiebreaker only.
+    """
     if not phrase:
         return {"response": None, "topic": None, "category": None, "success": False}
 
     normalized = re.sub(r"[^\w\s]", " ", phrase.lower())
 
+    best_entry = None
+    best_len = -1
     for entry in KNOWLEDGE_BASE:
         for kw in entry["keywords"]:
-            if kw in normalized:
-                return {
-                    "response": entry["response"],
-                    "topic":    entry["topic"],
-                    "category": entry["category"],
-                    "success":  True,
-                }
+            if kw in normalized and len(kw) > best_len:
+                best_entry = entry
+                best_len = len(kw)
+
+    if best_entry:
+        return {
+            "response": best_entry["response"],
+            "topic":    best_entry["topic"],
+            "category": best_entry["category"],
+            "success":  True,
+        }
 
     return {"response": None, "topic": None, "category": None, "success": False}
 
