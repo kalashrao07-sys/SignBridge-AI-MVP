@@ -20,6 +20,7 @@ from dotenv import load_dotenv
 
 from knowledge_base import lookup_knowledge, knowledge_base_size
 from sign_vocabulary import text_to_sign_sequence_detailed, sign_vocabulary_size
+from sentence_builder import build_sentence
 from auth import auth_bp, init_auth
 
 load_dotenv()
@@ -45,32 +46,12 @@ EMERGENCY_KEYWORDS = {
     "urgent", "critical", "severe", "immediately",
 }
 
-# ─── ISL/ASL grammar correction rules (SOV → SVO) ────────────────────
-GRAMMAR_RULES = [
-    (r"\bI\s+water\s+need\b",         "I need water."),
-    (r"\bI\s+food\s+need\b",          "I need food."),
-    (r"\bI\s+doctor\s+need\b",        "I need a doctor."),
-    (r"\bI\s+help\s+need\b",          "I need help."),
-    (r"\bI\s+toilet\s+need\b",        "I need to use the restroom."),
-    (r"\bI\s+hospital\s+need\b",      "I need to go to the hospital."),
-    (r"\bdoctor\s+need\s+pain\b",     "I need a doctor. I am in pain."),
-    (r"\bhelp\s+chest\s+pain\b",      "Help! I have chest pain."),
-    (r"\bpain\s+chest\b",             "I have chest pain."),
-    (r"\bhelp\s+please\b",            "Please help me."),
-    (r"\bI\s+deaf\b",                 "I am deaf."),
-    (r"\bI\s+mute\b",                 "I cannot speak."),
-    (r"\bneed\s+doctor\b",            "need a doctor"),
-    (r"\bneed\s+ambulance\b",         "need an ambulance"),
-    (r"\bwater\s+please\b",           "I would like water, please."),
-    (r"\bfood\s+please\b",            "I would like food, please."),
-    (r"\bthank\s+you\b",              "Thank you."),
-    (r"\bsorry\b",                    "I am sorry."),
-    (r"\bI\s+understand\s+not\b",     "I do not understand."),
-    (r"\brepeat\s+please\b",          "Please repeat that."),
-    (r"\bI\s+dizzy\b",                "I feel dizzy."),
-    (r"\bI\s+fever\b",                "I have a fever."),
-    (r"\bI\s+pain\b",                 "I am in pain."),
-]
+# NOTE: the old GRAMMAR_RULES regex list lived here. It was replaced by
+# sentence_builder.py because most of those patterns required the
+# literal word "need" to appear in the phrase, but no sign in
+# gesture.js's vocabulary produces the word "NEED" — they were
+# unreachable dead code. sentence_builder.py is built directly against
+# the real 60-word sign vocabulary instead.
 
 FILLER_WORDS = [
     r"\bif\s+you\s+don'?t\s+mind\b", r"\bcould\s+you\s+possibly\b",
@@ -97,13 +78,13 @@ def is_emergency(text: str) -> bool:
 
 
 def rule_correct(text: str) -> str:
-    result = text.strip()
-    for pattern, replacement in GRAMMAR_RULES:
-        result = re.sub(pattern, replacement, result, flags=re.IGNORECASE)
-    result = re.sub(r"\s{2,}", " ", result).strip()
-    if result and result[-1] not in ".!?":
-        result += "."
-    return result[0].upper() + result[1:] if result else result
+    """
+    Turn a raw sign-buffer phrase (space-joined words from gesture.js,
+    e.g. "I WATER" or "DOCTOR I PAIN") into a grammatical English
+    sentence, using sentence_builder.py's vocabulary-aware templates.
+    """
+    words = text.strip().split()
+    return build_sentence(words) if words else text
 
 
 def rule_simplify(text: str) -> str:
@@ -138,6 +119,27 @@ def translate_text(text: str, target: str) -> str:
         return GoogleTranslator(source="auto", target=code).translate(text)
     except Exception:
         return text
+
+
+@lru_cache(maxsize=256)
+def translate_to_english(text: str, source: str) -> str:
+    """
+    Reverse of translate_text(): translates recognized speech FROM the
+    selected language INTO English, so downstream logic that only
+    understands English (is_emergency's keyword set, the Knowledge
+    Engine, text_to_sign_sequence's 60-word vocabulary) can actually
+    work when the user spoke Hindi/Kannada. Without this, non-English
+    speech was being matched against English-only word lists and
+    silently produced nothing.
+    """
+    LANG_MAP = {"en": "en", "hi": "hi", "kn": "kn"}
+    code = LANG_MAP.get(source, "en")
+    if code == "en":
+        return text
+    try:
+        return GoogleTranslator(source=code, target="en").translate(text)
+    except Exception:
+        return text  # fail safe: fall back to the raw (untranslated) text
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -233,26 +235,38 @@ def process_speech():
     if len(text) > MAX_INPUT_LEN:
         return jsonify({"error": f"Text too long (max {MAX_INPUT_LEN} characters)"}), 400
 
-    emergency = is_emergency(text)
-    insight   = lookup_knowledge(text)
-    simplified = rule_simplify(text)
+    # Everything downstream (emergency keyword matching, the Knowledge
+    # Engine, sign-sequence matching) only understands English. If the
+    # user spoke Hindi/Kannada, `text` is in that language — translate
+    # to English FIRST so all of that logic actually has something it
+    # can match against, instead of silently finding nothing.
+    text_en = translate_to_english(text, lang) if lang != "en" else text
+
+    emergency = is_emergency(text_en)
+    insight   = lookup_knowledge(text_en)
+    simplified = rule_simplify(text_en)
 
     if emergency:
-        words     = text.upper().split()
+        words     = text_en.upper().split()
         key_words = [w for w in words
                      if re.sub(r"[^\w]", "", w.lower()) in EMERGENCY_KEYWORDS]
         display = " ".join(key_words[:3]) + " — CALL 108 🚨" if key_words else "EMERGENCY 🚨"
     else:
         display = simplified
 
+    # Translate the (now properly English) simplified sentence back to
+    # the selected language for display — a single sentence-level call,
+    # same principle as the Sign→Speech fix: translate whole sentences,
+    # not fragments.
     translated = None
     if lang != "en":
         translated = translate_text(simplified, lang)
 
-    sign_sequence, sign_unmatched = text_to_sign_sequence_detailed(text)
+    sign_sequence, sign_unmatched = text_to_sign_sequence_detailed(text_en)
 
     return jsonify({
-        "original":      text,
+        "original":      text,           # raw recognized speech, in the spoken language
+        "original_en":   text_en if lang != "en" else None,  # translated-to-English text actually used for matching, for transparency/debugging
         "simplified":    simplified,
         "display":       display,
         "emergency":     emergency,
