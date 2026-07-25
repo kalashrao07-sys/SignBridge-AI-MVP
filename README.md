@@ -14,6 +14,7 @@
 - [Tech Stack](#tech-stack)
 - [The Knowledge Engine](#the-knowledge-engine)
 - [Two Recognition Pipelines: Rule-Based + DL Model](#two-recognition-pipelines-rule-based--dl-model)
+- [Dataset & Training Pipeline](#dataset--training-pipeline)
 - [Setup Instructions](#setup-instructions)
 - [API Reference](#api-reference)
 - [Known Limitations](#known-limitations)
@@ -51,41 +52,9 @@ Both directions run through the same **offline Knowledge Engine** — there is n
 
 ## Architecture
 
-```
-+----------------------------- BROWSER --------------------------------+
-|                                                                       |
-|  MediaPipe Hands --> gesture.js (rule-based classifier, 60 signs)    |
-|       |                     |                                        |
-|       |                     +--> Phrase Buffer --> POST /api/sign/   |
-|       |                     |                        process         |
-|       |                                                               |
-|       +--> sequence-model.js (DL model, DEBUG-ONLY)                  |
-|                 |                                                     |
-|                 +--> console.log only -- never touches the UI,       |
-|                        the phrase buffer, or the Knowledge Engine    |
-|                                                                       |
-|  Web Speech API --> app.js --> POST /api/speech/process              |
-|                                                                       |
-|  sign-animation.js <-- sign_sequence (from /api/speech/process)      |
-|     SignAnimationPlayer: Play / Pause / Replay / Stop                |
-+-------------------------------+---------------------------------------+
-                                 |
-+----------------------------- FLASK BACKEND ---------------------------+
-|                                                                        |
-|  /api/sign/process                                                    |
-|    sentence_builder.py  -> grammatical English from sign buffer       |
-|    knowledge_base.py    -> offline Knowledge Engine lookup            |
-|    gTTS                 -> audio                                      |
-|    deep-translator      -> EN -> Hindi/Kannada (whole-sentence)       |
-|                                                                        |
-|  /api/speech/process                                                  |
-|    deep-translator       -> non-English speech -> English (if needed) |
-|    knowledge_base.py     -> offline Knowledge Engine lookup           |
-|    sign_vocabulary.py    -> keyword extraction + sign matching        |
-|                                                                        |
-|  Flask-Login + Flask-SQLAlchemy (SQLite) -> session-based auth        |
-+-------------------------------------------------------------------------+
-```
+![SignBridge AI system architecture](docs/diagrams/architecture.svg)
+
+Sign → Speech runs entirely through `gesture.js` (the rule-based classifier drives every user-facing output), while a trained DL sequence model runs in parallel purely for background monitoring — see [Two Recognition Pipelines](#two-recognition-pipelines-rule-based--dl-model) below. Speech → Sign goes through translation (if needed) and keyword matching before driving `SignAnimationPlayer`.
 
 ---
 
@@ -109,7 +78,7 @@ Both directions run through the same **offline Knowledge Engine** — there is n
 | Speech recognition | Web Speech API, English/Hindi/Kannada input |
 | Language handling | Non-English speech is translated to English *before* matching — the animation vocabulary is English-only, so this step is required for Hindi/Kannada input to produce any animation at all |
 | Keyword extraction | Tokenizes the full sentence, keeps only words with a real recorded animation (with light stemming for plurals/verb forms), silently drops filler words — **not** whole-sentence exact matching |
-| Sign animation | Real recorded hand/arm landmark sequences (not emoji, not fabricated poses) — **80-word vocabulary** (Kaggle Google-ISLR children's ASL subset, referred to internally as `ASL_80`) |
+| Sign animation | Real recorded hand/arm landmark sequences (not emoji, not fabricated poses) — **80-word vocabulary**, referred to internally as `ASL_80` (see [Dataset & Training Pipeline](#dataset--training-pipeline)) |
 | Playback controls | Play/Resume, Pause, Stop — a played sequence can be rewatched without repeating the speech input |
 | Transparency | If a sentence has words with no available animation, the UI says so explicitly (e.g. *"no animation for: doctor, urgently"*) rather than silently showing nothing |
 
@@ -133,6 +102,7 @@ Both directions run through the same **offline Knowledge Engine** — there is n
 | Translation | `deep-translator` (Google Translate) | Whole-sentence, bidirectional (EN <-> local language) |
 | Auth | Flask-Login + Flask-SQLAlchemy + SQLite | Real accounts, intentionally simple for this stage (see `auth.py`'s scope note — this is **not** the JWT + PostgreSQL setup planned for v2) |
 | Sign animation data | Recorded MediaPipe landmark sequences (`sign_animations.json`) | Real motion data, not fabricated |
+| DL sequence model | TensorFlow/Keras (training) + hand-written TF.js-core forward pass (browser inference) | See [Dataset & Training Pipeline](#dataset--training-pipeline) — trained offline, runs client-side, debug-only |
 | Deployment | Render.com | Free tier, HTTPS, auto-deploy from GitHub |
 
 ---
@@ -156,6 +126,8 @@ Both `/api/sign/process` and `/api/speech/process` route recognized text through
 
 ## Two Recognition Pipelines: Rule-Based + DL Model
 
+![Rule-based classifier drives the UI; the DL model runs debug-only in parallel](docs/diagrams/dual_pipeline.svg)
+
 Sign -> Speech actually runs **two independent pipelines simultaneously**, and this separation is intentional:
 
 - **`gesture.js` (rule-based, 60-sign bitmask classifier) drives 100% of the user-facing output** — the detected-sign display, the phrase buffer, the Knowledge Engine call, the final text, and TTS. This is what makes the demo reliable.
@@ -164,6 +136,47 @@ Sign -> Speech actually runs **two independent pipelines simultaneously**, and t
 This lets the DL model keep being monitored and improved without any risk of it destabilizing the live demo. See [Roadmap](#roadmap-v2) for what closing that gap looks like.
 
 The DL model itself required real engineering to get running in the browser at all — TensorFlow.js's built-in `GRU` layer doesn't support the `reset_after=True` gate formulation the model was trained with (a genuine tfjs-layers limitation, not a bug in this app), so inference runs through a hand-written forward pass (`gru_sequence_model.js`) implementing the correct cuDNN-compatible equations directly on `tfjs-core` ops, loading the original trained weights unmodified.
+
+---
+
+## Dataset & Training Pipeline
+
+![Dataset extraction and training pipeline, from Kaggle source data to both a browser-playable animation set and a trained recognition model](docs/diagrams/dataset_pipeline.svg)
+
+### Source dataset
+
+Both the Speech→Sign animation set and the DL recognition model are built from the same source: **[Google - Isolated Sign Language Recognition](https://www.kaggle.com/competitions/asl-signs/)**, a Kaggle competition dataset released by Google in 2023. The dataset contains landmark sequences (extracted via MediaPipe Holistic — hands, pose, and face) for ~250 signs across multiple participants, stored as one parquet file per recording plus a `train.csv` index (`sign`, `path` columns). This project uses an 80-sign subset (`SELECTED_SIGNS` — everyday/child-vocabulary words like `hello`, `food`, `duck`, `flower`), referred to internally as `ASL_80`.
+
+From that shared 80-sign subset, two separate, independent processing paths produce two separate artifacts:
+
+### Path A — Speech→Sign animation data (`extract_sign_keyframes.py`)
+
+For each of the 80 signs, this script:
+1. Scores up to 20 candidate recordings by their NaN ratio in the hand landmarks (shuffled first, so it doesn't always favor one participant), rather than rejecting the first "imperfect" sample it sees.
+2. Picks the **lowest-NaN-ratio** candidate — a real recording is often preferred over an artificially "clean" one, since one hand briefly leaving frame is normal and repairable.
+3. Interpolates any remaining gaps over time, and resamples every recording to a fixed **24 frames**.
+4. Keeps **48 points/frame**: 21 landmarks × 2 hands (42) + 6 arm/shoulder pose points (`POSE_KEEP = [11,12,13,14,15,16]`), so the browser can render a full arm+hand skeleton, not just floating hands.
+
+Output: `sign_animations.json` — real recorded motion, consumed directly by `sign-animation.js`'s `SignAnimationPlayer`. No synthetic or fabricated poses anywhere in this path.
+
+### Path B — DL recognition model (`preprocess_signs_v3_hands_only.py` → training → conversion)
+
+**Preprocessing** deliberately differs from Path A in two ways that matter:
+- **Hands-only, no pose** (42 points, x/y = 84 features/frame) — the browser's live camera pipeline only runs MediaPipe *Hands*, not Holistic, so a model trained on pose features could never be fed matching real-time data. This is preprocessing v3; the project's v2 preprocessing (which included pose) was scrapped for exactly this train/inference mismatch reason.
+- **Sequence-level, not per-frame, normalization** — center and scale are computed *once per sequence* (averaged wrist + middle-MCP position across all frames), then applied uniformly. Per-frame normalization was tried first and rejected: it erases the hand-trajectory motion a sequence model actually needs to tell visually-similar signs apart (e.g. "awake" vs "wake").
+
+Sequences are resampled to **32 frames** and cached to `sign_training_data.npz` + `label_names.json`.
+
+**Training** (`train_sign_model_experiment.py`, the current/final version — an earlier Conv1D+GlobalPool architecture in `train_sign_model.py` was superseded):
+- 80/20 stratified train/val split, **before** augmentation, so validation numbers stay honest and uncontaminated.
+- **3x data augmentation** on the training split only: Gaussian noise, random scale (±8%), random shift (±3%), plus a **mirrored variant** (swap left/right hand blocks, negate x) representing a mirrored signer.
+- Architecture: `Bidirectional GRU(48, return_sequences=True) → Bidirectional GRU(32) → Dense(64, relu) → Dropout(0.4) → Dense(80, softmax)`.
+- 80 epochs, batch size 32, early stopping on validation accuracy (patience 12, restores best weights).
+- Saved as `sign_model_v3.h5`.
+
+**Evaluation** (`evaluate_model.py`): per-class recall on the same held-out validation split (not aggregate accuracy, which hides which specific signs are actually reliable). Signs with recall ≥ 60% are written to `reliable_signs_v3.json`; the most-confused sign pairs are also logged, since two signs repeatedly swapping is often more effectively fixed by dropping one from the live set than by further training.
+
+**Browser conversion**: `sign_model_v3.h5` → `tensorflowjs_converter` → `static/model/`. This is where the `reset_after=True` incompatibility mentioned above was discovered and worked around — see [Two Recognition Pipelines](#two-recognition-pipelines-rule-based--dl-model).
 
 ---
 
@@ -256,8 +269,8 @@ Open `http://localhost:5000` in Chrome. No API keys required for the core app (K
 
 Being upfront about these rather than papering over them:
 
-- **The two sign vocabularies don't overlap.** The 60-word gesture-recognition set (medical/emergency-focused) and the 80-word Speech->Sign animation set (`ASL_80`, a children's-vocabulary dataset — animals, objects, everyday words) were built from different sources for different reasons. A sentence like *"I have a headache"* will correctly extract "headache" as a keyword but find no animation for it, because that word was never recorded. This is a dataset-coverage gap, not a bug — the extraction logic is already working correctly.
-- **The trained DL sequence model is not demo-ready.** It loads and runs correctly, but its real-time predictions are unstable — this is very likely a distribution mismatch between clean, pre-segmented training clips and live, variable-speed camera input, which needs real instrumentation to diagnose properly. It's kept running in debug-only mode for exactly this reason.
+- **The two sign vocabularies don't overlap.** The 60-word gesture-recognition set (medical/emergency-focused) and the 80-word Speech->Sign animation set (`ASL_80`, drawn from a children's-vocabulary subset of the Kaggle dataset — animals, objects, everyday words) were built for different purposes. A sentence like *"I have a headache"* will correctly extract "headache" as a keyword but find no animation for it, because that word was never part of the 80-word subset. This is a dataset-coverage gap, not a bug — the extraction logic is already working correctly.
+- **The trained DL sequence model is not demo-ready.** It loads and runs correctly, but its real-time predictions are unstable — this is very likely a distribution mismatch between clean, pre-segmented training clips (see Path A/B above) and live, variable-speed camera input, which needs real instrumentation to diagnose properly. It's kept running in debug-only mode for exactly this reason.
 - **Auth is intentionally minimal** (session-based, SQLite) — appropriate for this stage, not for a real multi-tenant production deployment.
 
 ---
@@ -283,8 +296,14 @@ SignBridge-AI-MVP/
 |-- knowledge_base.py             Offline Knowledge Engine (47 entries)
 |-- sentence_builder.py           Sign-buffer -> grammatical English sentence
 |-- sign_vocabulary.py            Speech text -> sign-sequence keyword matching
+|-- verify_dataset.py             Sanity-checks the Kaggle dataset structure
+|-- extract_sign_keyframes.py     Kaggle data -> sign_animations.json (Path A)
+|-- preprocess_signs_v3_hands_only.py   Kaggle data -> training cache (Path B)
+|-- train_sign_model_experiment.py      Trains sign_model_v3.h5 (current)
+|-- evaluate_model.py             Per-class recall -> reliable_signs_v3.json
 |-- requirements.txt
 |-- render.yaml / Procfile        Deployment config
+|-- docs/diagrams/                SVG architecture & pipeline diagrams (this README)
 |-- templates/
 |   |-- base.html
 |   |-- home.html
